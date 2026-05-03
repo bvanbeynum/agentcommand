@@ -1,0 +1,11 @@
+services:
+  command-center:
+    image: node:alpine
+    container_name: command_center
+    network_mode: "host"
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - NODE_ENV=development
+    command: ["npm", "run", "start:commandcenter"]
