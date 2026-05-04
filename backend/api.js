@@ -2,9 +2,13 @@ import { dataLayer } from './data.js';
 
 export const api = {
 	getOverview: async (req, res) => {
+		const timeRange = req.query.timeRange || '24H';
 		const stats = await dataLayer.getAgentStats();
 		if (stats.status !== 200) return res.status(stats.status).json(stats);
 		
+		const throughput = await dataLayer.getThroughputData(timeRange);
+		if (throughput.status !== 200) return res.status(throughput.status).json(throughput);
+
 		const recentLogs = await dataLayer.getLogs({}, 10);
 		if (recentLogs.status !== 200) return res.status(recentLogs.status).json(recentLogs);
 
@@ -12,6 +16,7 @@ export const api = {
 			status: 200,
 			data: {
 				stats: stats.data,
+				throughput: throughput.data,
 				recentLogs: recentLogs.data
 			}
 		});

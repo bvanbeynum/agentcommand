@@ -406,15 +406,67 @@ tr:hover {
 	gap: 4px;
 	border-left: 1px solid var(--outline-variant);
 	border-bottom: 1px solid var(--outline-variant);
-	padding: 16px;
+	padding: 16px 16px 0 16px;
+	position: relative;
+}
+
+.histogram-bar-wrapper {
+	flex: 1;
+	height: 100%;
+	display: flex;
+	align-items: flex-end;
 	position: relative;
 }
 
 .histogram-bar {
-	flex: 1;
+	width: 100%;
 	background-color: rgba(0, 174, 239, 0.4);
 	border-top: 2px solid var(--primary-cyan);
-	transition: all 0.3s;
+	transition: all 0.2s;
+}
+
+.histogram-bar-wrapper:hover .histogram-bar {
+	background-color: var(--primary-cyan);
+}
+
+.histogram-tooltip {
+	position: absolute;
+	bottom: calc(100% + 8px);
+	left: 50%;
+	transform: translateX(-50%);
+	background-color: var(--inverse-surface);
+	color: var(--inverse-on-surface);
+	padding: 8px 12px;
+	border-radius: 4px;
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.2s;
+	z-index: 100;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.histogram-tooltip::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	border-width: 6px;
+	border-style: solid;
+	border-color: var(--inverse-surface) transparent transparent transparent;
+}
+
+.histogram-bar-wrapper:hover .histogram-tooltip {
+	opacity: 1;
+}
+
+.histogram-x-axis {
+	display: flex;
+	justify-content: space-between;
+	padding: 8px 16px 0 16px;
+	font-size: 10px;
+	color: var(--outline);
 }
 
 .log-stream-container {
@@ -651,3 +703,120 @@ tr:hover {
 	vertical-align: middle;
 	box-shadow: 0 0 8px var(--primary-cyan);
 }
+
+/* Overview - Top Agent Activity */
+.activity-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-bottom: 12px;
+}
+
+.activity-row-label {
+	display: flex;
+	justify-content: space-between;
+}
+
+.progress-track {
+	height: 6px;
+	width: 100%;
+	background-color: var(--surface-variant);
+}
+
+.progress-fill {
+	height: 100%;
+	background-color: var(--primary-cyan);
+}
+
+/* Overview - Project Queue Table */
+.project-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.project-table thead tr {
+	background-color: var(--surface-bright);
+	border-bottom: 1px solid var(--outline-variant);
+}
+
+.project-table th {
+	font-size: 10px;
+	color: var(--on-surface-variant);
+	padding: 12px 16px;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+}
+
+.project-table td {
+	padding: 12px 16px;
+	font-size: 12px;
+}
+
+.project-table tr:hover {
+	background-color: rgba(248, 249, 252, 0.8);
+}
+
+.status-indicator {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	margin: 0 auto;
+}
+
+.status-active { background-color: var(--primary-cyan); box-shadow: 0 0 8px rgba(0, 174, 239, 0.5); }
+.status-queue { background-color: var(--surface-dim); }
+.status-stalled { background-color: var(--alert-amber); }
+.status-completed { background-color: var(--primary-cyan); opacity: 0.6; }
+
+/* Overview - Resource Matrix */
+.matrix-container {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	padding: 16px 0;
+}
+
+.matrix-grid {
+	display: grid;
+	gap: 4px;
+	width: 100%;
+	max-width: 320px;
+}
+
+.matrix-header-cell {
+	text-align: center;
+	font-size: 10px;
+	color: var(--outline);
+	padding-bottom: 4px;
+}
+
+.matrix-row-label {
+	text-align: right;
+	padding-right: 8px;
+	font-size: 10px;
+	color: var(--outline);
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.matrix-cell {
+	aspect-ratio: 1 / 1;
+	background-color: var(--surface-container-highest);
+	border: 1px solid rgba(191, 199, 207, 0.3);
+	transition: transform 0.2s;
+	cursor: pointer;
+}
+
+.matrix-cell:hover {
+	transform: scale(1.1);
+	z-index: 1;
+}
+
+.matrix-cell-active { background-color: var(--primary-cyan); border-color: rgba(0, 174, 239, 0.5); }
+.matrix-cell-warm { background-color: rgba(0, 174, 239, 0.6); }
+.matrix-cell-stale { background-color: var(--outline-variant); }
+.matrix-cell-alert { background-color: rgba(253, 153, 36, 0.8); }
+

@@ -1,7 +1,7 @@
 services:
-  command-center:
+  agentCommand:
     image: node:alpine
-    container_name: command_center
+    container_name: agentCommand
     network_mode: "host"
     volumes:
       - .:/app

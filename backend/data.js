@@ -165,22 +165,116 @@ export const dataLayer = {
 	},
 	getAgentStats: async () => {
 		try {
-			// Aggregation for quick overview stats
+			// Basic stats
 			const totalAgents = await Task.distinct('to').exec();
 			const activeTasks = await Task.countDocuments({ status: 'active' }).exec();
 			const completed24h = await Task.countDocuments({ 
 				status: 'done', 
 				completedAt: { $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) } 
 			}).exec();
+			const historicalTasksCompleted = await Task.countDocuments({ status: 'done' }).exec();
+
+			// Top Agents
+			const topAgentsRaw = await Task.aggregate([
+				{ $match: { status: 'done' } },
+				{ $group: { _id: '$to', count: { $sum: 1 } } },
+				{ $sort: { count: -1 } },
+				{ $limit: 5 }
+			]).exec();
+			
+			const maxCount = topAgentsRaw.length > 0 ? topAgentsRaw[0].count : 1;
+			const topAgents = topAgentsRaw.map(a => ({
+				id: a._id,
+				percentage: Math.round((a.count / maxCount) * 100)
+			}));
+
+			// Active Project Queue
+			const projectQueue = await Task.aggregate([
+				{ $sort: { created: -1 } },
+				{ $group: {
+					_id: '$metadata.projectName',
+					agents: { $addToSet: '$to' },
+					lastUpdate: { $first: '$created' },
+					status: { $first: '$status' }
+				}},
+				{ $limit: 10 },
+				{ $sort: { lastUpdate: -1 } }
+			]).exec();
+
+			// Resource Matrix (Matrix of Agents vs Projects)
+			// We'll get the last 5 active projects and cross-reference with top agents or all agents
+			const recentProjects = projectQueue.slice(0, 5).map(p => p._id).filter(Boolean);
+			const matrixData = await Task.aggregate([
+				{ $match: { 'metadata.projectName': { $in: recentProjects } } },
+				{ $group: {
+					_id: { agent: '$to', project: '$metadata.projectName' },
+					lastInteraction: { $max: '$created' }
+				}}
+			]).exec();
+
+			const resourceMatrix = {
+				projects: recentProjects,
+				agents: totalAgents.slice(0, 5), // Limit to top 5 for UI consistency
+				assignments: matrixData.map(m => ({
+					agent: m._id.agent,
+					project: m._id.project,
+					lastInteraction: m.lastInteraction
+				}))
+			};
 			
 			return { 
 				status: 200, 
 				data: {
 					totalAgents: totalAgents.length,
 					activeTasks,
-					completed24h
+					completed24h,
+					historicalTasksCompleted,
+					topAgents,
+					activeProjects: projectQueue.map(p => ({
+						id: p._id || 'UNNAMED',
+						allocation: p.agents.length,
+						lastUpdate: p.lastUpdate,
+						status: p.status === 'active' ? 'ACTIVE' : (p.status === 'done' ? 'COMPLETED' : 'QUEUE')
+					})),
+					resourceMatrix
 				} 
 			};
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
+	getThroughputData: async (timeRange = '24H') => {
+		try {
+			let hours = 24;
+			let buckets = 12;
+			if (timeRange === '1H') { hours = 1; buckets = 12; }
+			else if (timeRange === '12H') { hours = 12; buckets = 12; }
+			else if (timeRange === '7D') { hours = 24 * 7; buckets = 14; }
+
+			const startTime = new Date(Date.now() - hours * 60 * 60 * 1000);
+			const bucketSizeMs = (hours * 60 * 60 * 1000) / buckets;
+
+			const throughputRaw = await Task.aggregate([
+				{ $match: { 
+					status: 'done', 
+					completedAt: { $gt: startTime } 
+				}},
+				{ $bucket: {
+					groupBy: '$completedAt',
+					boundaries: Array.from({ length: buckets + 1 }, (_, i) => new Date(startTime.getTime() + i * bucketSizeMs)),
+					default: 'other',
+					output: { count: { $sum: 1 } }
+				}}
+			]).exec();
+
+			// Ensure all buckets are represented even if 0
+			const throughput = Array.from({ length: buckets }, (_, i) => {
+				const boundary = new Date(startTime.getTime() + i * bucketSizeMs);
+				const match = throughputRaw.find(t => t._id.getTime() === boundary.getTime());
+				return match ? match.count : 0;
+			});
+
+			return { status: 200, data: throughput };
 		} catch (error) {
 			return { status: 560, error: error.message };
 		}
