@@ -59,6 +59,18 @@ const sanitize = (doc) => {
 	return sanitized;
 };
 
+const formatDuration = (ms) => {
+	if (!ms || ms < 0) return '0s';
+	const sec = Math.floor(ms / 1000);
+	if (sec < 60) return `${sec}s`;
+	const min = Math.floor(sec / 60);
+	if (min < 60) return `${min}m ${sec % 60}s`;
+	const hr = Math.floor(min / 60);
+	if (hr < 24) return `${hr}h ${min % 60}m`;
+	const day = Math.floor(hr / 24);
+	return `${day}d ${hr % 24}h`;
+};
+
 export const connectDB = async () => {
 	try {
 		await mongoose.connect(config.db.uri, {
@@ -253,12 +265,14 @@ export const dataLayer = {
 	getProjects: async () => {
 		try {
 			const projects = await Task.aggregate([
+				{ $sort: { created: -1 } },
 				{ $group: {
 					_id: '$metadata.projectName',
 					id: { $first: '$metadata.projectName' },
 					lastUpdate: { $max: '$created' },
 					status: { $first: '$status' },
-					description: { $first: '$payload.instruction' }
+					description: { $first: '$payload.instruction' },
+					lastAgent: { $first: '$to' }
 				}},
 				{ $sort: { lastUpdate: -1 } }
 			]).exec();
@@ -270,7 +284,8 @@ export const dataLayer = {
 					name: p.id || 'Unknown Project',
 					description: p.description || 'No description available',
 					status: p.status === 'active' ? 'EXECUTION' : (p.status === 'done' ? 'COMPLETED' : 'PLANNING'),
-					lastUpdate: p.lastUpdate
+					lastUpdate: p.lastUpdate,
+					lastAgent: p.lastAgent || 'SYSTEM'
 				}))
 			};
 		} catch (error) {
@@ -280,28 +295,45 @@ export const dataLayer = {
 	getProjectDetails: async (projectId) => {
 		try {
 			const tasks = await Task.find({ 'metadata.projectName': projectId }).sort({ created: -1 }).lean().exec();
-			const logs = await Log.find({ 'context.projectName': projectId }).sort({ created: -1 }).limit(50).lean().exec();
+			const taskIds = tasks.map(t => t._id);
+			const logs = await Log.find({ 
+				$or: [
+					{ taskId: { $in: taskIds } },
+					{ 'context.projectName': projectId }
+				]
+			}).sort({ created: -1 }).limit(50).lean().exec();
 			const artifacts = await Artifact.find({ projectName: projectId }).sort({ created: -1 }).lean().exec();
 			
-			const agents = Array.from(new Set(tasks.map(t => t.to))).map(role => ({
-				id: role,
-				role: role.toUpperCase(),
-				status: tasks.some(t => t.to === role && t.status === 'active') ? 'online' : 'offline'
-			}));
+			const agents = Array.from(new Set(tasks.map(t => t.to))).map(role => {
+				const latestAgentTask = tasks.find(t => t.to === role);
+				return {
+					id: role,
+					role: role.toUpperCase(),
+					status: tasks.some(t => t.to === role && t.status === 'active') ? 'online' : 'offline',
+					lastUpdate: latestAgentTask ? latestAgentTask.created : null
+				};
+			});
 
-			const completion = tasks.length > 0 ? (tasks.filter(t => t.status === 'done').length / tasks.length) * 100 : 0;
+			let totalWorkTimeMs = 0;
+			tasks.forEach(task => {
+				if (task.startedAt && task.completedAt) {
+					totalWorkTimeMs += (new Date(task.completedAt).getTime() - new Date(task.startedAt).getTime());
+				}
+			});
+			const workingDuration = formatDuration(totalWorkTimeMs);
 
 			return {
 				status: 200,
 				data: {
 					id: projectId,
 					name: projectId,
-					completion: completion.toFixed(1),
+					workingDuration,
 					tasks: sanitize(tasks),
 					logs: sanitize(logs),
 					artifacts: sanitize(artifacts).map(a => ({
 						name: a.artifactName,
 						type: a.metadata?.type || 'description',
+						content: a.content,
 						updatedAt: a.updatedAt || a.created
 					})),
 					agents

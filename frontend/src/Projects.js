@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import MarkdownViewer from './MarkdownViewer.js';
 
 const Projects = () => {
 	const [projects, setProjects] = useState([]);
 	const [selectedProjectId, setSelectedProjectId] = useState(null);
 	const [projectDetails, setProjectDetails] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [selectedArtifact, setSelectedArtifact] = useState(null);
+	const [expandedLogIndex, setExpandedLogIndex] = useState(null);
 
 	useEffect(() => {
 		const fetchProjects = async () => {
@@ -44,6 +47,18 @@ const Projects = () => {
 			return () => clearInterval(interval);
 		}
 	}, [selectedProjectId]);
+
+	const formatDuration = (start, end) => {
+		if (!start || !end) return 'PENDING';
+		const ms = new Date(end).getTime() - new Date(start).getTime();
+		if (ms < 0) return '0s';
+		const sec = Math.floor(ms / 1000);
+		if (sec < 60) return `${sec}s`;
+		const min = Math.floor(sec / 60);
+		if (min < 60) return `${min}m ${sec % 60}s`;
+		const hr = Math.floor(min / 60);
+		return `${hr}h ${min % 60}m`;
+	};
 
 	if (loading) {
 		return (
@@ -90,7 +105,7 @@ const Projects = () => {
 									{project.description}
 								</p>
 								<div style={{ display: 'flex', gap: '8px' }}>
-									<span className="phase-badge">PHASE: {project.status}</span>
+									<span className="phase-badge">Last Agent: {project.lastAgent}</span>
 								</div>
 							</div>
 						))}
@@ -110,8 +125,8 @@ const Projects = () => {
 									<h2 className="headline-lg" style={{ fontSize: '24px', margin: 0 }}>{projectDetails.name}</h2>
 								</div>
 								<div style={{ textAlign: 'right' }}>
-									<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)', marginBottom: '4px' }}>COMPLETION ESTIMATE</div>
-									<div className="headline-md" style={{ fontSize: '20px' }}>{projectDetails.completion}%</div>
+									<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)', marginBottom: '4px' }}>WORKING</div>
+									<div className="headline-md" style={{ fontSize: '20px' }}>{projectDetails.workingDuration}</div>
 								</div>
 							</div>
 
@@ -124,7 +139,12 @@ const Projects = () => {
 									</div>
 									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 										{projectDetails.artifacts.length > 0 ? projectDetails.artifacts.map((artifact, i) => (
-											<a key={i} href="#" className="artifact-item">
+											<div 
+												key={i} 
+												className="artifact-item" 
+												style={{ cursor: 'pointer' }}
+												onClick={() => setSelectedArtifact(artifact)}
+											>
 												<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 													<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '16px' }}>
 														{artifact.type === 'code' ? 'code' : artifact.type === 'design' ? 'design_services' : 'description'}
@@ -132,7 +152,7 @@ const Projects = () => {
 													<span className="mono-data" style={{ fontSize: '12px' }}>{artifact.name}</span>
 												</div>
 												<span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--on-surface-variant)' }}>open_in_new</span>
-											</a>
+											</div>
 										)) : (
 											<div className="mono-data" style={{ fontSize: '11px', color: 'var(--on-surface-variant)', padding: '8px' }}>No artifacts found</div>
 										)}
@@ -152,7 +172,9 @@ const Projects = () => {
 													<div className="agent-avatar-small">{agent.id.substring(0, 2).toUpperCase()}</div>
 													<div>
 														<div className="mono-data" style={{ fontSize: '12px', lineHeight: 1 }}>{agent.role}</div>
-														<div className="mono-data" style={{ fontSize: '9px', color: 'var(--on-surface-variant)', marginTop: '4px' }}>{agent.id}</div>
+														<div className="mono-data" style={{ fontSize: '9px', color: 'var(--on-surface-variant)', marginTop: '4px' }}>
+															Last Update: {agent.lastUpdate ? new Date(agent.lastUpdate).toLocaleString() : 'Never'}
+														</div>
 													</div>
 												</div>
 												<div className={`status-dot ${agent.status === 'online' ? 'bg-primary-cyan' : 'bg-outline-variant'}`}></div>
@@ -173,20 +195,20 @@ const Projects = () => {
 								<table className="project-table">
 									<thead>
 										<tr>
-											<th className="mono-data" style={{ fontSize: '10px' }}>Task ID</th>
+											<th className="mono-data" style={{ fontSize: '10px' }}>Date/Time</th>
 											<th className="mono-data" style={{ fontSize: '10px' }}>Description</th>
 											<th className="mono-data" style={{ fontSize: '10px' }}>Assignee</th>
-											<th className="mono-data" style={{ fontSize: '10px', textAlign: 'right' }}>Status</th>
+											<th className="mono-data" style={{ fontSize: '10px', textAlign: 'right' }}>Time Taken</th>
 										</tr>
 									</thead>
 									<tbody>
 										{projectDetails.tasks.length > 0 ? projectDetails.tasks.map((task, i) => (
 											<tr key={i}>
-												<td className="mono-data text-primary-cyan" style={{ fontSize: '12px' }}>{task.id.substring(0, 7)}</td>
+												<td className="mono-data text-primary-cyan" style={{ fontSize: '12px' }}>{new Date(task.created).toLocaleString()}</td>
 												<td className="mono-data" style={{ fontSize: '12px' }}>{task.payload.instruction}</td>
 												<td className="mono-data" style={{ fontSize: '12px', color: 'var(--on-surface-variant)' }}>{task.to}</td>
 												<td className="mono-data" style={{ fontSize: '12px', textAlign: 'right', color: task.status === 'done' ? 'var(--primary-cyan)' : 'var(--alert-amber)' }}>
-													{task.status.toUpperCase()}
+													{formatDuration(task.startedAt || task.created, task.completedAt)}
 												</td>
 											</tr>
 										)) : (
@@ -198,27 +220,85 @@ const Projects = () => {
 								</table>
 							</div>
 
-							{/* Logs */}
-							<div className="bento-card dark-bento-card">
-								<div className="dark-card-header">
-									<div className="label-caps" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-										<span className="material-symbols-outlined" style={{ fontSize: '16px' }}>terminal</span>
-										PROJECT_SPECIFIC_LOGS
+							{/* Work Log Terminal */}
+							<section className="terminal-container">
+								<div className="terminal-header">
+									<span className="mono-data uppercase" style={{ fontSize: '10px', letterSpacing: '0.15em' }}>WORK LOG STREAM :: LIVE</span>
+									<div style={{ display: 'flex', gap: '4px' }}>
+										<div className="status-pip bg-alert-amber" style={{ opacity: 0.5 }}></div>
+										<div className="status-pip bg-primary-cyan" style={{ opacity: 0.8 }}></div>
 									</div>
-									<span className="mono-data text-primary-cyan" style={{ fontSize: '10px' }}>FILTER: {projectDetails.id}</span>
 								</div>
-								<div className="project-log-stream">
-									{projectDetails.logs.length > 0 ? projectDetails.logs.map((log, i) => (
-										<div key={i} style={{ display: 'flex', gap: '16px' }}>
-											<span style={{ color: 'var(--surface-variant)', opacity: 0.5 }}>{new Date(log.created).toLocaleTimeString()}</span>
-											<span className={log.level === 'error' ? 'text-alert-amber' : 'text-primary-cyan'}>[{log.level.toUpperCase()}]</span>
-											<span style={{ color: 'var(--surface-container-highest)' }}>{log.message}</span>
+								<div className="terminal-log-stream mono-data">
+									<div className="flex-gap-8" style={{ marginBottom: '8px' }}>
+										<span className="text-primary-cyan">&gt;_</span>
+										<span className="terminal-cursor pulse"></span>
+									</div>
+									{projectDetails.logs?.map((log, i) => {
+										const isError = log.level === 'error' || log.message?.toLowerCase().includes('error');
+										const accentColor = isError ? '#ff5449' : 'var(--primary-cyan)';
+										const bgColor = isError ? 'rgba(255, 84, 73, 0.2)' : 'rgba(0, 174, 239, 0.15)';
+										const textColor = isError ? '#ffffff' : '#b0deff';
+
+										return (
+											<div 
+												key={i} 
+												className="log-entry-wrapper"
+												style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
+												onClick={() => setExpandedLogIndex(expandedLogIndex === i ? null : i)}
+											>
+												<div className="flex-gap-8" style={{ backgroundColor: expandedLogIndex === i ? (isError ? 'rgba(255, 84, 73, 0.1)' : 'rgba(0, 174, 239, 0.1)') : 'transparent', padding: '2px 4px', borderRadius: '2px' }}>
+													<span style={{ color: 'var(--outline)' }}>[{new Date(log.created).toLocaleTimeString()}]</span>
+													<span style={{ color: isError ? '#ff5449' : '#e6edf3', fontWeight: isError ? '600' : '400' }}>{log.message}</span>
+												</div>
+												{expandedLogIndex === i && log.context && Object.keys(log.context).length > 0 && (
+													<div style={{ 
+														marginLeft: '24px', 
+														padding: '8px 12px', 
+														borderLeft: `2px solid ${accentColor}`, 
+														color: textColor, 
+														fontSize: '11px',
+														backgroundColor: bgColor,
+														marginTop: '4px',
+														marginBottom: '4px',
+														borderRadius: '0 4px 4px 0',
+														boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.3)'
+													}}>
+														<span style={{ color: accentColor, fontWeight: 'bold', marginRight: '8px' }}>[LOG_CONTEXT]</span>
+														{JSON.stringify(log.context, null, 2)}
+													</div>
+												)}
+											</div>
+										);
+									})}
+									{projectDetails.logs?.length === 0 && <div className="mono-data" style={{ opacity: 0.5 }}>No telemetry signals detected...</div>}
+								</div>
+							</section>
+
+							{/* Artifact Detail Modal */}
+							{selectedArtifact && (
+								<div className="modal-overlay" onClick={() => setSelectedArtifact(null)}>
+									<div className="modal-content bento-card" onClick={e => e.stopPropagation()}>
+										<header className="modal-header">
+											<div>
+												<h2 className="label-caps" style={{ margin: 0 }}>{selectedArtifact.name}</h2>
+												<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>
+													UPDATED: {new Date(selectedArtifact.updatedAt).toLocaleString()}
+												</div>
+											</div>
+											<button className="modal-close-btn" onClick={() => setSelectedArtifact(null)}>
+												<span className="material-symbols-outlined">close</span>
+											</button>
+										</header>
+										<div className="modal-body scrollable-y">
+											<MarkdownViewer content={selectedArtifact.content} />
 										</div>
-									)) : (
-										<div className="mono-data" style={{ opacity: 0.5 }}>No telemetry signals detected...</div>
-									)}
+										<footer className="modal-footer">
+											<button className="btn-telemetry-filter-active mono-data" onClick={() => setSelectedArtifact(null)}>CLOSE</button>
+										</footer>
+									</div>
 								</div>
-							</div>
+							)}
 						</>
 					) : (
 						<div className="bento-card">
