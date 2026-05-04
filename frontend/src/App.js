@@ -619,36 +619,43 @@ const Agents = () => {
 							<span className="text-primary-cyan">&gt;_</span>
 							<span className="terminal-cursor pulse"></span>
 						</div>
-						{selectedAgentData.recentLogs?.map((log, i) => (
-							<div 
-								key={i} 
-								className="log-entry-wrapper"
-								style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
-								onClick={() => setExpandedLogIndex(expandedLogIndex === i ? null : i)}
-							>
-								<div className="flex-gap-8" style={{ backgroundColor: expandedLogIndex === i ? 'rgba(0, 174, 239, 0.1)' : 'transparent', padding: '2px 4px', borderRadius: '2px' }}>
-									<span style={{ color: 'var(--outline)' }}>[{new Date(log.created).toLocaleTimeString()}]</span>
-									<span style={{ color: log.level === 'error' ? 'var(--error)' : 'var(--on-surface-variant)', color: '#e6edf3' }}>{log.message}</span>
-								</div>
-								{expandedLogIndex === i && log.context && Object.keys(log.context).length > 0 && (
-									<div style={{ 
-										marginLeft: '24px', 
-										padding: '8px 12px', 
-										borderLeft: '2px solid var(--primary-cyan)', 
-										color: '#b0deff', 
-										fontSize: '11px',
-										backgroundColor: 'rgba(0, 174, 239, 0.15)',
-										marginTop: '4px',
-										marginBottom: '4px',
-										borderRadius: '0 4px 4px 0',
-										boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.2)'
-									}}>
-										<span style={{ color: 'var(--primary-cyan)', fontWeight: 'bold', marginRight: '8px' }}>[CONTEXT]</span>
-										{JSON.stringify(log.context, null, 2)}
+						{selectedAgentData.recentLogs?.map((log, i) => {
+							const isError = log.level === 'error' || log.message?.toLowerCase().includes('error');
+							const accentColor = isError ? '#ff5449' : 'var(--primary-cyan)';
+							const bgColor = isError ? 'rgba(255, 84, 73, 0.2)' : 'rgba(0, 174, 239, 0.15)';
+							const textColor = isError ? '#ffffff' : '#b0deff';
+
+							return (
+								<div 
+									key={i} 
+									className="log-entry-wrapper"
+									style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
+									onClick={() => setExpandedLogIndex(expandedLogIndex === i ? null : i)}
+								>
+									<div className="flex-gap-8" style={{ backgroundColor: expandedLogIndex === i ? (isError ? 'rgba(255, 84, 73, 0.1)' : 'rgba(0, 174, 239, 0.1)') : 'transparent', padding: '2px 4px', borderRadius: '2px' }}>
+										<span style={{ color: 'var(--outline)' }}>[{new Date(log.created).toLocaleTimeString()}]</span>
+										<span style={{ color: isError ? '#ff5449' : '#e6edf3', fontWeight: isError ? '600' : '400' }}>{log.message}</span>
 									</div>
-								)}
-							</div>
-						))}
+									{expandedLogIndex === i && log.context && Object.keys(log.context).length > 0 && (
+										<div style={{ 
+											marginLeft: '24px', 
+											padding: '8px 12px', 
+											borderLeft: `2px solid ${accentColor}`, 
+											color: textColor, 
+											fontSize: '11px',
+											backgroundColor: bgColor,
+											marginTop: '4px',
+											marginBottom: '4px',
+											borderRadius: '0 4px 4px 0',
+											boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.3)'
+										}}>
+											<span style={{ color: accentColor, fontWeight: 'bold', marginRight: '8px' }}>[ERROR_CONTEXT]</span>
+											{JSON.stringify(log.context, null, 2)}
+										</div>
+									)}
+								</div>
+							);
+						})}
 					</div>
 				</section>
 			</div>
