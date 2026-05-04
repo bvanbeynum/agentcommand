@@ -289,6 +289,8 @@ const Agents = () => {
 	const [agentRoster, setAgentRoster] = useState([]);
 	const [selectedAgent, setSelectedAgent] = useState(null);
 	const [selectedAgentData, setSelectedAgentData] = useState(null);
+	const [expandedTaskIndex, setExpandedTaskIndex] = useState(null);
+	const [expandedLogIndex, setExpandedLogIndex] = useState(null);
 	
 	useEffect(() => {
 		const fetchRoster = async () => {
@@ -307,24 +309,30 @@ const Agents = () => {
 		};
 		fetchRoster();
 	}, []);
-
 	useEffect(() => {
-		if (!selectedAgent) return;
-
 		const fetchDetails = async () => {
+			if (!selectedAgent) return;
 			try {
 				const res = await fetch(`/api/agents/${selectedAgent}`);
 				const json = await res.json();
 				if (json.status === 200) {
 					setSelectedAgentData(json.data);
+					// Note: We don't reset expandedTaskIndex on every poll, only on initial agent change
 				}
 			} catch (err) {
-				console.error('Failed to fetch agent details:', err);
+				console.error('Failed to fetch details:', err);
 			}
 		};
+
 		fetchDetails();
 		const interval = setInterval(fetchDetails, 5000);
 		return () => clearInterval(interval);
+	}, [selectedAgent]);
+
+	// Separate effect to reset expanded states on agent change
+	useEffect(() => {
+		setExpandedTaskIndex(null);
+		setExpandedLogIndex(null);
 	}, [selectedAgent]);
 
 	const getIcon = (role) => {
@@ -446,13 +454,40 @@ const Agents = () => {
 					</h2>
 					<div className="timeline-container">
 						{selectedAgentData.tasks.map((task, i) => (
-							<div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px', position: 'relative' }}>
+							<div 
+								key={i} 
+								className="timeline-item"
+								style={{ display: 'flex', flexDirection: 'column', gap: '4px', position: 'relative', cursor: 'pointer' }}
+								onClick={() => setExpandedTaskIndex(expandedTaskIndex === i ? null : i)}
+							>
 								<div className={`timeline-node ${task.active ? 'timeline-node-active' : ''}`} style={{ top: '4px' }}></div>
 								<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 									<span className="mono-data" style={{ fontSize: '10px', backgroundColor: 'var(--surface-variant)', padding: '0 4px', border: '1px solid var(--outline-variant)' }}>{task.id}</span>
-									<span className="mono-data" style={{ fontSize: '12px' }}>{task.desc}</span>
+									<span className="mono-data" style={{ fontSize: '12px', fontWeight: expandedTaskIndex === i ? '600' : '400' }}>{task.desc}</span>
 								</div>
 								<span className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>{new Date(task.time).toLocaleString()}</span>
+								
+								{expandedTaskIndex === i && (
+									<div className="task-context-panel mono-data" style={{ 
+										marginTop: '8px', 
+										padding: '12px', 
+										backgroundColor: 'var(--surface-container-low)', 
+										border: '1px solid var(--outline-variant)',
+										fontSize: '11px',
+										color: 'var(--on-surface-variant)',
+										whiteSpace: 'pre-wrap',
+										wordBreak: 'break-all'
+									}}>
+										<div style={{ marginBottom: '8px', color: 'var(--primary-cyan)', fontWeight: 'bold' }}>TASK CONTEXT:</div>
+										{JSON.stringify(task.payload, null, 2)}
+										{task.metadata && (
+											<>
+												<div style={{ marginTop: '12px', marginBottom: '8px', color: 'var(--primary-cyan)', fontWeight: 'bold' }}>METADATA:</div>
+												{JSON.stringify(task.metadata, null, 2)}
+											</>
+										)}
+									</div>
+								)}
 							</div>
 						))}
 						{selectedAgentData.tasks.length === 0 && <div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>No tasks in stream.</div>}
@@ -469,16 +504,40 @@ const Agents = () => {
 						</div>
 					</div>
 					<div className="terminal-log-stream mono-data">
-						{selectedAgentData.recentLogs?.map((log, i) => (
-							<div key={i} className="flex-gap-8">
-								<span style={{ color: 'var(--outline)' }}>[{new Date(log.created).toLocaleTimeString()}]</span>
-								<span style={{ color: log.level === 'error' ? 'var(--error)' : 'var(--on-surface)' }}>{log.message}</span>
-							</div>
-						))}
-						<div className="flex-gap-8" style={{ marginTop: '8px' }}>
+						<div className="flex-gap-8" style={{ marginBottom: '8px' }}>
 							<span className="text-primary-cyan">&gt;_</span>
 							<span className="terminal-cursor pulse"></span>
 						</div>
+						{selectedAgentData.recentLogs?.map((log, i) => (
+							<div 
+								key={i} 
+								className="log-entry-wrapper"
+								style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
+								onClick={() => setExpandedLogIndex(expandedLogIndex === i ? null : i)}
+							>
+								<div className="flex-gap-8" style={{ backgroundColor: expandedLogIndex === i ? 'rgba(0, 174, 239, 0.1)' : 'transparent', padding: '2px 4px', borderRadius: '2px' }}>
+									<span style={{ color: 'var(--outline)' }}>[{new Date(log.created).toLocaleTimeString()}]</span>
+									<span style={{ color: log.level === 'error' ? 'var(--error)' : 'var(--on-surface-variant)', color: '#e6edf3' }}>{log.message}</span>
+								</div>
+								{expandedLogIndex === i && log.context && Object.keys(log.context).length > 0 && (
+									<div style={{ 
+										marginLeft: '24px', 
+										padding: '8px 12px', 
+										borderLeft: '2px solid var(--primary-cyan)', 
+										color: '#b0deff', 
+										fontSize: '11px',
+										backgroundColor: 'rgba(0, 174, 239, 0.15)',
+										marginTop: '4px',
+										marginBottom: '4px',
+										borderRadius: '0 4px 4px 0',
+										boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.2)'
+									}}>
+										<span style={{ color: 'var(--primary-cyan)', fontWeight: 'bold', marginRight: '8px' }}>[CONTEXT]</span>
+										{JSON.stringify(log.context, null, 2)}
+									</div>
+								)}
+							</div>
+						))}
 					</div>
 				</section>
 			</div>
