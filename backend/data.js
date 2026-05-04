@@ -250,6 +250,67 @@ export const dataLayer = {
 			return { status: 560, error: error.message };
 		}
 	},
+	getProjects: async () => {
+		try {
+			const projects = await Task.aggregate([
+				{ $group: {
+					_id: '$metadata.projectName',
+					id: { $first: '$metadata.projectName' },
+					lastUpdate: { $max: '$created' },
+					status: { $first: '$status' },
+					description: { $first: '$payload.instruction' }
+				}},
+				{ $sort: { lastUpdate: -1 } }
+			]).exec();
+
+			return { 
+				status: 200, 
+				data: projects.filter(p => p._id).map(p => ({
+					id: p.id || 'PRJ-UNK',
+					name: p.id || 'Unknown Project',
+					description: p.description || 'No description available',
+					status: p.status === 'active' ? 'EXECUTION' : (p.status === 'done' ? 'COMPLETED' : 'PLANNING'),
+					lastUpdate: p.lastUpdate
+				}))
+			};
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
+	getProjectDetails: async (projectId) => {
+		try {
+			const tasks = await Task.find({ 'metadata.projectName': projectId }).sort({ created: -1 }).lean().exec();
+			const logs = await Log.find({ 'context.projectName': projectId }).sort({ created: -1 }).limit(50).lean().exec();
+			const artifacts = await Artifact.find({ projectName: projectId }).sort({ created: -1 }).lean().exec();
+			
+			const agents = Array.from(new Set(tasks.map(t => t.to))).map(role => ({
+				id: role,
+				role: role.toUpperCase(),
+				status: tasks.some(t => t.to === role && t.status === 'active') ? 'online' : 'offline'
+			}));
+
+			const completion = tasks.length > 0 ? (tasks.filter(t => t.status === 'done').length / tasks.length) * 100 : 0;
+
+			return {
+				status: 200,
+				data: {
+					id: projectId,
+					name: projectId,
+					completion: completion.toFixed(1),
+					tasks: sanitize(tasks),
+					logs: sanitize(logs),
+					artifacts: sanitize(artifacts).map(a => ({
+						name: a.artifactName,
+						type: a.metadata?.type || 'description',
+						updatedAt: a.updatedAt || a.created
+					})),
+					agents
+				}
+			};
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
 	getThroughputData: async (timeRange = '24H') => {
 		try {
 			let hours = 24;

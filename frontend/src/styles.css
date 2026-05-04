@@ -999,3 +999,185 @@ tr:hover {
 	font-size: 12px;
 }
 
+/* Project Matrix Specific Styles */
+
+.project-matrix-header {
+	margin-bottom: var(--stack-lg);
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+	border-bottom: 1px solid var(--outline-variant);
+	padding-bottom: var(--stack-sm);
+}
+
+.project-matrix-title {
+	font-size: 32px;
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	text-transform: uppercase;
+}
+
+.project-matrix-subtitle {
+	font-family: 'Fira Code', monospace;
+	font-size: 14px;
+	color: var(--on-surface-variant);
+	margin-top: 8px;
+}
+
+.btn-initialize {
+	background-color: var(--on-surface);
+	color: var(--surface-container-lowest);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.15em;
+	padding: 8px 16px;
+	border: 1px solid var(--on-surface);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-initialize:hover {
+	background-color: var(--surface-container);
+	color: var(--on-surface);
+}
+
+.project-sidebar {
+	grid-column: span 4;
+	display: flex;
+	flex-direction: column;
+	gap: var(--stack-md);
+}
+
+.project-detail-view {
+	grid-column: span 8;
+	display: flex;
+	flex-direction: column;
+	gap: var(--stack-md);
+}
+
+.directory-header {
+	background-color: var(--surface-container-high);
+	border: 1px solid var(--outline-variant);
+	padding: 8px;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.15em;
+	color: var(--on-surface);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.project-card {
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+.project-card:hover {
+	background-color: var(--surface-container);
+}
+
+.project-card-active {
+	border-left: 4px solid var(--primary-cyan);
+}
+
+.project-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: start;
+	margin-bottom: 8px;
+}
+
+.project-id-label {
+	font-family: 'Fira Code', monospace;
+	font-size: 10px;
+	letter-spacing: 0.1em;
+}
+
+.status-dot {
+	width: 8px;
+	height: 8px;
+}
+
+.phase-badge {
+	font-family: 'Fira Code', monospace;
+	font-size: 10px;
+	background-color: var(--surface-container-highest);
+	padding: 2px 4px;
+	border: 1px solid var(--outline-variant);
+	color: var(--on-surface-variant);
+}
+
+.detail-banner {
+	background-color: var(--surface);
+	border: 1px solid var(--outline-variant);
+	padding: var(--stack-md);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.artifact-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px;
+	border: 1px solid var(--outline-variant);
+	transition: background-color 0.2s;
+	text-decoration: none;
+	color: inherit;
+}
+
+.artifact-item:hover {
+	background-color: var(--surface-container);
+}
+
+.agent-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px;
+	background-color: var(--surface);
+	border: 1px solid var(--outline-variant);
+}
+
+.agent-avatar-small {
+	width: 24px;
+	height: 24px;
+	background-color: var(--on-surface);
+	color: var(--surface-container-lowest);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-family: 'Fira Code', monospace;
+	font-size: 10px;
+}
+
+.dark-bento-card {
+	background-color: var(--on-surface);
+	color: var(--surface-container-lowest);
+}
+
+.dark-card-header {
+	border-bottom: 1px solid rgba(226, 226, 226, 0.3);
+	padding-bottom: 8px;
+	margin-bottom: 16px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.project-log-stream {
+	height: 128px;
+	overflow-y: auto;
+	font-family: 'Fira Code', monospace;
+	font-size: 11px;
+	line-height: 1.6;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+

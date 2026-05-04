@@ -20,6 +20,8 @@ app.get('/api/logs', api.getLogs);
 app.get('/api/artifacts', api.getArtifacts);
 app.get('/api/agents', api.getAgents);
 app.get('/api/agents/:id', api.getAgentDetails);
+app.get('/api/projects', api.getProjects);
+app.get('/api/projects/:id', api.getProjectDetails);
 
 const startServer = async () => {
 	if (IS_DEV) {
