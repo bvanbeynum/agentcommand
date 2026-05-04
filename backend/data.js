@@ -149,12 +149,19 @@ export const dataLayer = {
 					lastActivity: tasks.length > 0 ? tasks[0].created : new Date(),
 					project: tasks.length > 0 ? tasks[0].metadata?.projectName : 'NONE',
 					history: projectHistory,
-					artifacts: sanitize(artifacts).map(a => ({ name: a.artifactName, type: 'description' })),
+					artifacts: sanitize(artifacts).map(a => ({ 
+						name: a.artifactName, 
+						type: 'description',
+						content: a.content,
+						updatedAt: a.updatedAt || a.created
+					})),
 					tasks: tasks.map(t => ({
 						id: t.metadata?.projectName || 'TASK',
 						desc: t.payload.instruction,
 						time: t.created,
-						active: t.status === 'active'
+						active: t.status === 'active',
+						payload: t.payload,
+						metadata: t.metadata
 					})),
 					recentLogs: sanitize(logs)
 				}

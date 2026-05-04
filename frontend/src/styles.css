@@ -618,6 +618,17 @@ tr:hover {
 	position: relative;
 }
 
+.timeline-item {
+	transition: all 0.2s;
+	padding: 4px 8px;
+	margin-left: -8px;
+	border-radius: 4px;
+}
+
+.timeline-item:hover {
+	background-color: var(--surface-container-low);
+}
+
 .timeline-node {
 	position: absolute;
 	left: -5px;
@@ -685,6 +696,10 @@ tr:hover {
 	padding-bottom: 16px;
 	scrollbar-width: thin;
 	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.log-entry-wrapper:hover .flex-gap-8 {
+	background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
 .terminal-log-stream span[style*="var(--outline)"] {
@@ -819,4 +834,168 @@ tr:hover {
 .matrix-cell-warm { background-color: rgba(0, 174, 239, 0.6); }
 .matrix-cell-stale { background-color: var(--outline-variant); }
 .matrix-cell-alert { background-color: rgba(253, 153, 36, 0.8); }
+
+/* Modal Styles */
+.modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	background-color: rgba(0, 0, 0, 0.5);
+	backdrop-filter: blur(4px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	padding: 40px;
+}
+
+.modal-content {
+	width: 100%;
+	max-width: 960px;
+	max-height: 90vh;
+	background-color: var(--surface-container-lowest);
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	overflow: hidden;
+}
+
+.modal-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	padding: 24px;
+	border-bottom: 1px solid var(--outline-variant);
+}
+
+.modal-close-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--on-surface-variant);
+	transition: color 0.2s;
+}
+
+.modal-close-btn:hover {
+	color: var(--primary-cyan);
+}
+
+.modal-body {
+	flex: 1;
+	padding: 24px;
+	overflow-y: auto;
+}
+
+.modal-footer {
+	padding: 16px 24px;
+	border-top: 1px solid var(--outline-variant);
+	display: flex;
+	justify-content: flex-end;
+}
+
+.scrollable-y {
+	overflow-y: auto;
+}
+
+/* Markdown Typography */
+.markdown-body {
+	line-height: 1.5;
+	color: var(--on-surface);
+	font-size: 13px;
+}
+
+.markdown-body h1 { font-size: 20px; margin-bottom: 12px; border-bottom: 1px solid var(--outline-variant); padding-bottom: 4px; }
+.markdown-body h2 { font-size: 16px; margin-top: 20px; margin-bottom: 8px; }
+.markdown-body h3 { font-size: 14px; margin-top: 16px; margin-bottom: 4px; }
+.markdown-body p { margin-bottom: 8px; }
+.markdown-body blockquote { border-left: 3px solid var(--primary-cyan); padding-left: 12px; color: var(--on-surface-variant); font-style: italic; margin: 12px 0; }
+.markdown-body a { color: var(--primary-cyan); text-decoration: none; }
+.markdown-body a:hover { text-decoration: underline; }
+.markdown-body b { font-weight: 700; color: var(--on-surface); }
+.markdown-body i { font-style: italic; }
+.markdown-body img { max-width: 100%; height: auto; border: 1px solid var(--outline-variant); }
+
+/* Markdown Bullets */
+.markdown-body ul {
+	margin-bottom: 12px;
+	padding-left: 20px;
+	list-style-type: disc;
+}
+
+.markdown-body li {
+	margin-bottom: 2px;
+}
+
+/* Markdown Tables (Matching Project Queue) */
+.markdown-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 16px 0;
+	border: 1px solid var(--outline-variant);
+}
+
+.markdown-table thead tr {
+	background-color: var(--surface-bright);
+	border-bottom: 1px solid var(--outline-variant);
+}
+
+.markdown-table th {
+	font-size: 10px;
+	color: var(--on-surface-variant);
+	padding: 12px 16px;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	text-align: left;
+}
+
+.markdown-table td {
+	padding: 12px 16px;
+	font-size: 12px;
+	border-bottom: 1px solid rgba(191, 199, 207, 0.5);
+}
+
+.markdown-table tr:last-child td {
+	border-bottom: none;
+}
+
+/* Markdown Code Blocks (Matching Terminal) */
+.markdown-body pre {
+	background-color: #0d1117;
+	color: #e6edf3;
+	padding: 16px;
+	border-radius: 4px;
+	overflow-x: auto;
+	margin: 16px 0;
+	border: 1px solid var(--outline-variant);
+	position: relative;
+}
+
+.markdown-body pre::after {
+	content: " ";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+	background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+	z-index: 2;
+	background-size: 100% 2px, 3px 100%;
+	pointer-events: none;
+}
+
+.markdown-body code {
+	font-family: 'Fira Code', monospace;
+	font-size: 13px;
+}
+
+.inline-code {
+	background-color: var(--surface-container-high);
+	padding: 2px 4px;
+	border-radius: 2px;
+	font-family: 'Fira Code', monospace;
+	font-size: 12px;
+}
 

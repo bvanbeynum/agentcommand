@@ -285,12 +285,93 @@ const Overview = ({ data, timeRange, setTimeRange }) => {
 	);
 };
 
+const MarkdownViewer = ({ content }) => {
+	// Simple Markdown to HTML converter
+	const parseMarkdown = (md) => {
+		if (!md) return '';
+		
+		const codeBlocks = [];
+		let html = md.replace(/```(?:[a-z]*)?\n([\s\S]*?)```/gim, (match, code) => {
+			const id = codeBlocks.length;
+			codeBlocks.push(`<pre className="mono-data"><code>${code}</code></pre>`);
+			return `___CODE_BLOCK_${id}___`;
+		});
+
+		// 2. Tables
+		const lines = html.split('\n');
+		let inTable = false;
+		
+		const processedLines = lines.map(line => {
+			const trimmed = line.trim();
+			if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+				const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
+				if (!inTable) {
+					inTable = true;
+					return `<table className="markdown-table"><thead><tr>${cells.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+				} else if (trimmed.includes('---')) {
+					return ''; // Skip the divider line
+				} else {
+					return `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+				}
+			} else {
+				if (inTable) {
+					inTable = false;
+					return '</tbody></table>' + line;
+				}
+				return line;
+			}
+		});
+		
+		html = processedLines.filter(l => l !== '').join('\n');
+		if (inTable) html += '</tbody></table>';
+
+		// 3. Bullets
+		html = html.replace(/^[ \t]*\* (.*$)/gim, '<ul><li>$1</li></ul>');
+		html = html.replace(/<\/ul>\n<ul>/gim, ''); 
+
+		// 4. Inline formatting & Headers
+		html = html
+			.replace(/^### (.*$)/gim, '<h3>$1</h3>')
+			.replace(/^## (.*$)/gim, '<h2>$1</h2>')
+			.replace(/^# (.*$)/gim, '<h1>$1</h1>')
+			.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+			.replace(/\*\*(.+?)\*\*/gim, '<b>$1</b>')
+			.replace(/\*(.+?)\*/gim, '<i>$1</i>')
+			.replace(/`([^`]+)`/gim, '<code className="inline-code">$1</code>')
+			.replace(/!\[(.*?)\]\((.*?)\)/gim, "<img alt='$1' src='$2' />")
+			.replace(/\[(.*?)\]\((.*?)\)/gim, "<a href='$2'>$1</a>");
+		
+		// 5. Paragraphs
+		let finalHtml = html.split('\n').map(line => {
+			const trimmed = line.trim();
+			if (trimmed === '') return '<br/>';
+			if (trimmed.startsWith('<') || trimmed.startsWith('___CODE_BLOCK_')) return line;
+			return `<p>${line}</p>`;
+		}).join('');
+
+		// 6. Restore Code Blocks
+		codeBlocks.forEach((block, i) => {
+			finalHtml = finalHtml.replace(`___CODE_BLOCK_${i}___`, block);
+		});
+
+		return finalHtml;
+	};
+
+	return (
+		<div 
+			className="markdown-body"
+			dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
+		/>
+	);
+};
+
 const Agents = () => {
 	const [agentRoster, setAgentRoster] = useState([]);
 	const [selectedAgent, setSelectedAgent] = useState(null);
 	const [selectedAgentData, setSelectedAgentData] = useState(null);
 	const [expandedTaskIndex, setExpandedTaskIndex] = useState(null);
 	const [expandedLogIndex, setExpandedLogIndex] = useState(null);
+	const [selectedArtifact, setSelectedArtifact] = useState(null);
 	
 	useEffect(() => {
 		const fetchRoster = async () => {
@@ -437,15 +518,45 @@ const Agents = () => {
 						</h2>
 						<div className="artifact-grid">
 							{selectedAgentData.artifacts.map((art, i) => (
-								<a key={i} href="#" className="artifact-link">
+								<div 
+									key={i} 
+									className="artifact-link" 
+									style={{ cursor: 'pointer' }}
+									onClick={() => setSelectedArtifact(art)}
+								>
 									<span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--outline)' }}>{art.type === 'image' ? 'image' : 'description'}</span>
 									<span className="mono-data" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{art.name}</span>
-								</a>
+								</div>
 							))}
 							{selectedAgentData.artifacts.length === 0 && <div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>No artifacts generated.</div>}
 						</div>
 					</section>
 				</div>
+
+				{/* Artifact Detail Modal */}
+				{selectedArtifact && (
+					<div className="modal-overlay" onClick={() => setSelectedArtifact(null)}>
+						<div className="modal-content bento-card" onClick={e => e.stopPropagation()}>
+							<header className="modal-header">
+								<div>
+									<h2 className="label-caps" style={{ margin: 0 }}>{selectedArtifact.name}</h2>
+									<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>
+										UPDATED: {new Date(selectedArtifact.updatedAt).toLocaleString()}
+									</div>
+								</div>
+								<button className="modal-close-btn" onClick={() => setSelectedArtifact(null)}>
+									<span className="material-symbols-outlined">close</span>
+								</button>
+							</header>
+							<div className="modal-body scrollable-y">
+								<MarkdownViewer content={selectedArtifact.content} />
+							</div>
+							<footer className="modal-footer">
+								<button className="btn-telemetry-filter-active mono-data" onClick={() => setSelectedArtifact(null)}>CLOSE</button>
+							</footer>
+						</div>
+					</div>
+				)}
 
 				{/* Recent Task Stream */}
 				<section className="bento-card">
