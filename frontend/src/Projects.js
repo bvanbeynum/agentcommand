@@ -8,24 +8,28 @@ const Projects = () => {
 	const [loading, setLoading] = useState(true);
 	const [selectedArtifact, setSelectedArtifact] = useState(null);
 	const [expandedLogIndex, setExpandedLogIndex] = useState(null);
+	const [showInitializeModal, setShowInitializeModal] = useState(false);
+	const [newProjectName, setNewProjectName] = useState('');
+	const [newInstruction, setNewInstruction] = useState('');
+
+	const fetchProjects = async () => {
+		try {
+			const res = await fetch('/api/projects');
+			const json = await res.json();
+			if (json.status === 200) {
+				setProjects(json.data);
+				if (json.data.length > 0 && !selectedProjectId) {
+					setSelectedProjectId(json.data[0].id);
+				}
+			}
+		} catch (err) {
+			console.error('Failed to fetch projects:', err);
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	useEffect(() => {
-		const fetchProjects = async () => {
-			try {
-				const res = await fetch('/api/projects');
-				const json = await res.json();
-				if (json.status === 200) {
-					setProjects(json.data);
-					if (json.data.length > 0 && !selectedProjectId) {
-						setSelectedProjectId(json.data[0].id);
-					}
-				}
-			} catch (err) {
-				console.error('Failed to fetch projects:', err);
-			} finally {
-				setLoading(false);
-			}
-		};
 		fetchProjects();
 	}, []);
 
@@ -47,6 +51,45 @@ const Projects = () => {
 			return () => clearInterval(interval);
 		}
 	}, [selectedProjectId]);
+
+	const handleInitializeProject = async () => {
+		if (!newProjectName || !newInstruction) return;
+
+		const taskData = {
+			to: 'Business Analyst',
+			status: 'pending',
+			payload: {
+				instruction: newInstruction
+			},
+			metadata: {
+				projectName: newProjectName
+			},
+			created: new Date(),
+			startedAt: null,
+			clarifications: [],
+			completedAt: null,
+			result: null
+		};
+
+		try {
+			const res = await fetch('/api/tasks', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(taskData)
+			});
+			const json = await res.json();
+			if (json.status === 201) {
+				setShowInitializeModal(false);
+				setNewProjectName('');
+				setNewInstruction('');
+				fetchProjects();
+			}
+		} catch (err) {
+			console.error('Failed to initialize project:', err);
+		}
+	};
 
 	const formatDuration = (start, end) => {
 		if (!start || !end) return 'PENDING';
@@ -76,7 +119,7 @@ const Projects = () => {
 					<h1 className="project-matrix-title">Project Matrix</h1>
 					<p className="project-matrix-subtitle">ACTIVE INITIATIVES & TELEMETRY ALIGNMENT</p>
 				</div>
-				<button className="btn-initialize">
+				<button className="btn-initialize" onClick={() => setShowInitializeModal(true)}>
 					<span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
 					INITIALIZE PROJECT
 				</button>
@@ -247,9 +290,35 @@ const Projects = () => {
 												style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
 												onClick={() => setExpandedLogIndex(expandedLogIndex === i ? null : i)}
 											>
-												<div className="flex-gap-8" style={{ backgroundColor: expandedLogIndex === i ? (isError ? 'rgba(255, 84, 73, 0.1)' : 'rgba(0, 174, 239, 0.1)') : 'transparent', padding: '2px 4px', borderRadius: '2px' }}>
-													<span style={{ color: 'var(--outline)' }}>[{new Date(log.created).toLocaleTimeString()}]</span>
-													<span style={{ color: isError ? '#ff5449' : '#e6edf3', fontWeight: isError ? '600' : '400' }}>{log.message}</span>
+												<div className="flex-gap-8" style={{ 
+													backgroundColor: expandedLogIndex === i ? (isError ? 'rgba(255, 84, 73, 0.1)' : 'rgba(0, 174, 239, 0.1)') : 'transparent', 
+													padding: '2px 4px', 
+													borderRadius: '2px',
+													alignItems: 'flex-start'
+												}}>
+													<span style={{ color: 'var(--outline)', flexShrink: 0 }}>[{new Date(log.created).toLocaleTimeString()}]</span>
+													{log.projectName && (
+														<span style={{ 
+															color: 'var(--primary-cyan)', 
+															fontSize: '10px', 
+															fontWeight: 'bold', 
+															border: '1px solid rgba(0, 174, 239, 0.3)',
+															padding: '0 4px',
+															borderRadius: '2px',
+															backgroundColor: 'rgba(0, 174, 239, 0.05)',
+															flexShrink: 0,
+															alignSelf: 'flex-start',
+															marginTop: '2px'
+														}}>
+															{log.projectName}
+														</span>
+													)}
+													<span style={{ 
+														color: isError ? '#ff5449' : '#e6edf3', 
+														fontWeight: isError ? '600' : '400',
+														wordBreak: 'break-word',
+														flex: 1
+													}}>{log.message}</span>
 												</div>
 												{expandedLogIndex === i && log.context && Object.keys(log.context).length > 0 && (
 													<div style={{ 
@@ -299,11 +368,101 @@ const Projects = () => {
 									</div>
 								</div>
 							)}
+
+							{/* Initialize Project Modal */}
+							{showInitializeModal && (
+								<div className="modal-overlay" onClick={() => setShowInitializeModal(false)}>
+									<div className="modal-content bento-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+										<header className="modal-header">
+											<div>
+												<h2 className="label-caps" style={{ margin: 0 }}>Initialize New Project</h2>
+												<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>
+													ALLOCATING NEURAL RESOURCES
+												</div>
+											</div>
+											<button className="modal-close-btn" onClick={() => setShowInitializeModal(false)}>
+												<span className="material-symbols-outlined">close</span>
+											</button>
+										</header>
+										<div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+											<div className="flex-column-gap-8">
+												<label className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Project Identifier</label>
+												<input 
+													type="text" 
+													className="terminal-input mono-data" 
+													placeholder="e.g. PROJECT-PHOENIX" 
+													value={newProjectName}
+													onChange={e => setNewProjectName(e.target.value)}
+												/>
+											</div>
+											<div className="flex-column-gap-8">
+												<label className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Initial Instruction</label>
+												<textarea 
+													className="terminal-input mono-data" 
+													style={{ minHeight: '120px', resize: 'vertical' }}
+													placeholder="Describe the project goal..."
+													value={newInstruction}
+													onChange={e => setNewInstruction(e.target.value)}
+												/>
+											</div>
+										</div>
+										<footer className="modal-footer">
+											<button className="btn-telemetry-filter mono-data" style={{ marginRight: '12px' }} onClick={() => setShowInitializeModal(false)}>CANCEL</button>
+											<button className="btn-initialize" onClick={handleInitializeProject}>EXECUTE INITIALIZATION</button>
+										</footer>
+									</div>
+								</div>
+							)}
 						</>
 					) : (
 						<div className="bento-card">
 							<div className="label-caps">Project Detail Initialization</div>
 							<div className="mono-data view-placeholder-text">Awaiting project selection...</div>
+						</div>
+					)}
+					
+					{/* Initialize Project Modal (Fallback for when no project is selected) */}
+					{!projectDetails && showInitializeModal && (
+						<div className="modal-overlay" onClick={() => setShowInitializeModal(false)}>
+							<div className="modal-content bento-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+								<header className="modal-header">
+									<div>
+										<h2 className="label-caps" style={{ margin: 0 }}>Initialize New Project</h2>
+										<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>
+											ALLOCATING NEURAL RESOURCES
+										</div>
+									</div>
+									<button className="modal-close-btn" onClick={() => setShowInitializeModal(false)}>
+										<span className="material-symbols-outlined">close</span>
+									</button>
+								</header>
+								<div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+									<div className="flex-column-gap-8">
+										<label className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Project Identifier</label>
+										<input 
+											type="text" 
+											className="terminal-input mono-data" 
+											placeholder="e.g. PROJECT-PHOENIX" 
+											value={newProjectName}
+											onChange={e => setNewProjectName(e.target.value)}
+										/>
+									</div>
+									<div className="flex-column-gap-8">
+										<label className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)' }}>Initial Instruction</label>
+										<textarea 
+											className="terminal-input mono-data" 
+											style={{ minHeight: '120px', resize: 'vertical' }}
+											placeholder="Describe the project goal..."
+											value={newInstruction}
+											onChange={e => setNewInstruction(e.target.value)}
+										/>
+									</div>
+								</div>
+								<footer className="modal-footer">
+									<button className="btn-telemetry-filter mono-data" style={{ marginRight: '12px' }} onClick={() => setShowInitializeModal(false)}>CANCEL</button>
+									<button className="btn-initialize" onClick={handleInitializeProject}>EXECUTE INITIALIZATION</button>
+								</footer>
+							</div>
 						</div>
 					)}
 				</div>

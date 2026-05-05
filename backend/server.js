@@ -22,6 +22,7 @@ app.get('/api/agents', api.getAgents);
 app.get('/api/agents/:id', api.getAgentDetails);
 app.get('/api/projects', api.getProjects);
 app.get('/api/projects/:id', api.getProjectDetails);
+app.post('/api/tasks', api.createTask);
 
 const startServer = async () => {
 	if (IS_DEV) {

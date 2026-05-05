@@ -384,6 +384,25 @@ tr:hover {
 	gap: 8px;
 }
 
+.flex-column-gap-8 {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.terminal-input {
+	background-color: var(--surface-container-low);
+	border: 1px solid var(--outline-variant);
+	padding: 12px;
+	color: var(--on-surface);
+	outline: none;
+	transition: border-color 0.2s;
+}
+
+.terminal-input:focus {
+	border-color: var(--primary-cyan);
+}
+
 .btn-telemetry-filter {
 	font-size: 10px;
 	padding: 2px 8px;

@@ -268,9 +268,35 @@ const Agents = () => {
 									style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
 									onClick={() => setExpandedLogIndex(expandedLogIndex === i ? null : i)}
 								>
-									<div className="flex-gap-8" style={{ backgroundColor: expandedLogIndex === i ? (isError ? 'rgba(255, 84, 73, 0.1)' : 'rgba(0, 174, 239, 0.1)') : 'transparent', padding: '2px 4px', borderRadius: '2px' }}>
-										<span style={{ color: 'var(--outline)' }}>[{new Date(log.created).toLocaleTimeString()}]</span>
-										<span style={{ color: isError ? '#ff5449' : '#e6edf3', fontWeight: isError ? '600' : '400' }}>{log.message}</span>
+									<div className="flex-gap-8" style={{ 
+										backgroundColor: expandedLogIndex === i ? (isError ? 'rgba(255, 84, 73, 0.1)' : 'rgba(0, 174, 239, 0.1)') : 'transparent', 
+										padding: '2px 4px', 
+										borderRadius: '2px',
+										alignItems: 'flex-start'
+									}}>
+										<span style={{ color: 'var(--outline)', flexShrink: 0 }}>[{new Date(log.created).toLocaleTimeString()}]</span>
+										{log.projectName && (
+											<span style={{ 
+												color: 'var(--primary-cyan)', 
+												fontSize: '10px', 
+												fontWeight: 'bold', 
+												border: '1px solid rgba(0, 174, 239, 0.3)',
+												padding: '0 4px',
+												borderRadius: '2px',
+												backgroundColor: 'rgba(0, 174, 239, 0.05)',
+												flexShrink: 0,
+												alignSelf: 'flex-start',
+												marginTop: '2px'
+											}}>
+												{log.projectName}
+											</span>
+										)}
+										<span style={{ 
+											color: isError ? '#ff5449' : '#e6edf3', 
+											fontWeight: isError ? '600' : '400',
+											wordBreak: 'break-word',
+											flex: 1
+										}}>{log.message}</span>
 									</div>
 									{expandedLogIndex === i && log.context && Object.keys(log.context).length > 0 && (
 										<div style={{ 

@@ -17,7 +17,7 @@ const taskSchema = new Schema({
 }, { collection: 'tasks' });
 
 const logSchema = new Schema({
-	taskId: { type: Schema.Types.ObjectId, ref: 'Task' },
+	taskId: { type: String, ref: 'Task' },
 	agentRole: { type: String, required: true },
 	level: { type: String, required: true },
 	message: { type: String, required: true },
@@ -29,7 +29,7 @@ const artifactSchema = new Schema({
 	projectName: { type: String, required: true },
 	artifactName: { type: String, required: true },
 	content: { type: Schema.Types.Mixed, required: true },
-	taskId: { type: Schema.Types.ObjectId, ref: 'Task' },
+	taskId: { type: String, ref: 'Task' },
 	agentRole: { type: String },
 	metadata: { type: Object, default: {} },
 	updatedAt: { type: Date },
@@ -48,7 +48,7 @@ const sanitize = (doc) => {
 		sanitized.id = sanitized._id.toString();
 		// Fallback for date if 'created' is missing
 		if (!sanitized.created) {
-			sanitized.created = sanitized.createdAt || sanitized._id.getTimestamp();
+			sanitized.created = sanitized.createdAt || (typeof sanitized._id.getTimestamp === 'function' ? sanitized._id.getTimestamp() : new Date());
 		}
 		delete sanitized._id;
 	}
@@ -100,7 +100,30 @@ export const dataLayer = {
 	},
 	getLogs: async (filter = {}, limit = 100) => {
 		try {
-			const data = await Log.find(filter).sort({ created: -1 }).limit(limit).lean().exec();
+			// Use aggregation to join with tasks and get projectName
+			const pipeline = [
+				{ $match: filter },
+				{ $sort: { created: -1 } },
+				{ $limit: limit },
+				{
+					$lookup: {
+						from: 'tasks',
+						let: { tId: '$taskId' },
+						pipeline: [
+							{ $match: { $expr: { $eq: [ { $toString: '$_id' }, '$$tId' ] } } }
+						],
+						as: 'task'
+					}
+				},
+				{ $unwind: { path: '$task', preserveNullAndEmptyArrays: true } },
+				{
+					$addFields: {
+						projectName: '$task.metadata.projectName'
+					}
+				},
+				{ $project: { task: 0 } }
+			];
+			const data = await Log.aggregate(pipeline).exec();
 			return { status: 200, data: sanitize(data) };
 		} catch (error) {
 			return { status: 560, error: error.message };
@@ -135,13 +158,16 @@ export const dataLayer = {
 		try {
 			const rawTasks = await Task.find({ to: role }).sort({ created: -1 }).limit(20).lean().exec();
 			const tasks = sanitize(rawTasks);
-			const logs = await Log.find({ agentRole: role }).sort({ created: -1 }).limit(50).lean().exec();
-			
+
+			// Use the enhanced getLogs logic for consistency
+			const logsResult = await dataLayer.getLogs({ agentRole: role }, 50);
+			const logs = logsResult.status === 200 ? logsResult.data : [];
+
 			// Infer artifacts from taskId or agentRole
 			const artifacts = await Artifact.find({ 
 				$or: [
 					{ agentRole: role },
-					{ taskId: { $in: rawTasks.map(t => t._id) } }
+					{ taskId: { $in: rawTasks.map(t => t._id.toString()) } }
 				]
 			}).sort({ created: -1 }).lean().exec();
 
@@ -175,7 +201,7 @@ export const dataLayer = {
 						payload: t.payload,
 						metadata: t.metadata
 					})),
-					recentLogs: sanitize(logs)
+					recentLogs: logs
 				}
 			};
 		} catch (error) {
@@ -200,7 +226,7 @@ export const dataLayer = {
 				{ $sort: { count: -1 } },
 				{ $limit: 5 }
 			]).exec();
-			
+
 			const maxCount = topAgentsRaw.length > 0 ? topAgentsRaw[0].count : 1;
 			const topAgents = topAgentsRaw.map(a => ({
 				id: a._id,
@@ -240,7 +266,7 @@ export const dataLayer = {
 					lastInteraction: m.lastInteraction
 				}))
 			};
-			
+
 			return { 
 				status: 200, 
 				data: {
@@ -295,15 +321,19 @@ export const dataLayer = {
 	getProjectDetails: async (projectId) => {
 		try {
 			const tasks = await Task.find({ 'metadata.projectName': projectId }).sort({ created: -1 }).lean().exec();
-			const taskIds = tasks.map(t => t._id);
-			const logs = await Log.find({ 
+			const taskIds = tasks.map(t => t._id.toString());
+
+			// Use aggregation for logs to ensure we get projectName and correctly match string taskIds
+			const logsResult = await dataLayer.getLogs({
 				$or: [
 					{ taskId: { $in: taskIds } },
 					{ 'context.projectName': projectId }
 				]
-			}).sort({ created: -1 }).limit(50).lean().exec();
+			}, 50);
+			const logs = logsResult.status === 200 ? logsResult.data : [];
+
 			const artifacts = await Artifact.find({ projectName: projectId }).sort({ created: -1 }).lean().exec();
-			
+
 			const agents = Array.from(new Set(tasks.map(t => t.to))).map(role => {
 				const latestAgentTask = tasks.find(t => t.to === role);
 				return {
@@ -329,7 +359,7 @@ export const dataLayer = {
 					name: projectId,
 					workingDuration,
 					tasks: sanitize(tasks),
-					logs: sanitize(logs),
+					logs: logs,
 					artifacts: sanitize(artifacts).map(a => ({
 						name: a.artifactName,
 						type: a.metadata?.type || 'description',
@@ -375,6 +405,18 @@ export const dataLayer = {
 			});
 
 			return { status: 200, data: throughput };
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
+	createTask: async (taskData) => {
+		try {
+			const task = new Task({
+				from: 'User',
+				...taskData
+			});
+			const savedTask = await task.save();
+			return { status: 201, data: sanitize(savedTask.toObject()) };
 		} catch (error) {
 			return { status: 560, error: error.message };
 		}
