@@ -11,6 +11,9 @@ const Projects = () => {
 	const [showInitializeModal, setShowInitializeModal] = useState(false);
 	const [newProjectName, setNewProjectName] = useState('');
 	const [newInstruction, setNewInstruction] = useState('');
+	const [selectedTask, setSelectedTask] = useState(null);
+	const [clarificationAnswers, setClarificationAnswers] = useState({});
+	const [expandedClarificationIndex, setExpandedClarificationIndex] = useState(null);
 
 	const fetchProjects = async () => {
 		try {
@@ -29,28 +32,70 @@ const Projects = () => {
 		}
 	};
 
+	const fetchProjectDetails = async () => {
+		if (!selectedProjectId) return;
+		try {
+			const res = await fetch(`/api/projects/${selectedProjectId}`);
+			const json = await res.json();
+			if (json.status === 200) {
+				setProjectDetails(json.data);
+				if (selectedTask) {
+					const updatedTask = json.data.tasks.find(t => t.id === selectedTask.id);
+					if (updatedTask) setSelectedTask(updatedTask);
+				}
+			}
+		} catch (err) {
+			console.error('Failed to fetch project details:', err);
+		}
+	};
+
 	useEffect(() => {
 		fetchProjects();
 	}, []);
 
 	useEffect(() => {
-		if (selectedProjectId) {
-			const fetchProjectDetails = async () => {
-				try {
-					const res = await fetch(`/api/projects/${selectedProjectId}`);
-					const json = await res.json();
-					if (json.status === 200) {
-						setProjectDetails(json.data);
-					}
-				} catch (err) {
-					console.error('Failed to fetch project details:', err);
-				}
-			};
-			fetchProjectDetails();
-			const interval = setInterval(fetchProjectDetails, 5000);
-			return () => clearInterval(interval);
-		}
+		fetchProjectDetails();
+		const interval = setInterval(fetchProjectDetails, 5000);
+		return () => clearInterval(interval);
 	}, [selectedProjectId]);
+
+	const handleAnswerClarification = async (task, index, answer) => {
+		if (!answer) return;
+
+		const updatedClarifications = [...task.clarifications];
+		updatedClarifications[index] = { ...updatedClarifications[index], answer };
+
+		const userResponses = task.payload.userResponses || [];
+		userResponses.push({
+			question: updatedClarifications[index].question || updatedClarifications[index].questions,
+			answer,
+			timestamp: new Date()
+		});
+
+		try {
+			const res = await fetch(`/api/tasks/${task.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					clarifications: updatedClarifications,
+					status: 'pending',
+					'payload.userResponses': userResponses
+				})
+			});
+			const json = await res.json();
+			if (json.status === 200) {
+				setClarificationAnswers(prev => {
+					const next = { ...prev };
+					delete next[index];
+					return next;
+				});
+				setSelectedTask(json.data);
+				fetchProjectDetails();
+			}
+		} catch (err) {
+			console.error('Failed to answer clarification:', err);
+		}
+	};
 
 	const handleInitializeProject = async () => {
 		if (!newProjectName || !newInstruction) return;
@@ -239,20 +284,27 @@ const Projects = () => {
 									<thead>
 										<tr>
 											<th className="mono-data" style={{ fontSize: '10px' }}>Date/Time</th>
+											<th className="mono-data" style={{ fontSize: '10px' }}>Status</th>
 											<th className="mono-data" style={{ fontSize: '10px' }}>Description</th>
 											<th className="mono-data" style={{ fontSize: '10px' }}>Assignee</th>
-											<th className="mono-data" style={{ fontSize: '10px', textAlign: 'right' }}>Time Taken</th>
 										</tr>
 									</thead>
 									<tbody>
 										{projectDetails.tasks.length > 0 ? projectDetails.tasks.map((task, i) => (
-											<tr key={i}>
+											<tr key={i} onClick={() => setSelectedTask(task)} style={{ cursor: 'pointer' }}>
 												<td className="mono-data text-primary-cyan" style={{ fontSize: '12px' }}>{new Date(task.created).toLocaleString()}</td>
+												<td className="mono-data" style={{ fontSize: '12px' }}>
+													<span style={{ 
+														color: task.status === 'done' ? 'var(--primary-cyan)' : (task.status === 'awaiting_user_response' ? '#ff5449' : 'var(--alert-amber)'),
+														fontWeight: '600',
+														textTransform: 'uppercase',
+														fontSize: '10px'
+													}}>
+														{task.status.replace(/_/g, ' ')}
+													</span>
+												</td>
 												<td className="mono-data" style={{ fontSize: '12px' }}>{task.payload.instruction}</td>
 												<td className="mono-data" style={{ fontSize: '12px', color: 'var(--on-surface-variant)' }}>{task.to}</td>
-												<td className="mono-data" style={{ fontSize: '12px', textAlign: 'right', color: task.status === 'done' ? 'var(--primary-cyan)' : 'var(--alert-amber)' }}>
-													{formatDuration(task.startedAt || task.created, task.completedAt)}
-												</td>
 											</tr>
 										)) : (
 											<tr>
@@ -364,6 +416,159 @@ const Projects = () => {
 										</div>
 										<footer className="modal-footer">
 											<button className="btn-telemetry-filter-active mono-data" onClick={() => setSelectedArtifact(null)}>CLOSE</button>
+										</footer>
+									</div>
+								</div>
+							)}
+
+							{/* Task Detail Modal */}
+							{selectedTask && (
+								<div className="modal-overlay" onClick={() => setSelectedTask(null)}>
+									<div className="modal-content bento-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+										<header className="modal-header">
+											<div style={{ width: '100%' }}>
+												<div className="flex-justify-between" style={{ marginBottom: '8px' }}>
+													<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>
+														CREATED: {new Date(selectedTask.created).toLocaleString()}
+													</div>
+													<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>
+														STARTED: {selectedTask.startedAt ? new Date(selectedTask.startedAt).toLocaleString() : 'PENDING'}
+													</div>
+													<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>
+														COMPLETED: {selectedTask.completedAt ? new Date(selectedTask.completedAt).toLocaleString() : 'N/A'}
+													</div>
+												</div>
+												<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+													<h2 className="label-caps" style={{ margin: 0 }}>Task Details</h2>
+													<span style={{ 
+														backgroundColor: selectedTask.status === 'done' ? 'rgba(0, 174, 239, 0.1)' : (selectedTask.status === 'awaiting_user_response' ? 'rgba(255, 84, 73, 0.1)' : 'rgba(253, 153, 36, 0.1)'),
+														color: selectedTask.status === 'done' ? 'var(--primary-cyan)' : (selectedTask.status === 'awaiting_user_response' ? '#ff5449' : 'var(--alert-amber)'),
+														border: `1px solid ${selectedTask.status === 'done' ? 'var(--primary-cyan)' : (selectedTask.status === 'awaiting_user_response' ? '#ff5449' : 'var(--alert-amber)')}`,
+														padding: '2px 8px',
+														fontSize: '10px',
+														fontWeight: 'bold',
+														borderRadius: '2px',
+														textTransform: 'uppercase'
+													}}>
+														{selectedTask.status.replace(/_/g, ' ')}
+													</span>
+												</div>
+											</div>
+											<button className="modal-close-btn" onClick={() => setSelectedTask(null)}>
+												<span className="material-symbols-outlined">close</span>
+											</button>
+										</header>
+										<div className="modal-body scrollable-y" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+											<div>
+												<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)', marginBottom: '8px' }}>INSTRUCTION</div>
+												<div className="mono-data" style={{ fontSize: '13px', backgroundColor: 'var(--surface-container-low)', padding: '12px', borderLeft: '3px solid var(--primary-cyan)' }}>
+													{selectedTask.payload.instruction}
+												</div>
+											</div>
+
+											<div>
+												<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)', marginBottom: '8px' }}>CLARIFICATIONS</div>
+												<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+													{selectedTask.clarifications && selectedTask.clarifications.length > 0 ? selectedTask.clarifications.map((clar, i) => {
+														const isExpanded = expandedClarificationIndex === i;
+														const questionText = clar.question || clar.questions || '';
+														return (
+															<div key={i} className="bento-card" style={{ padding: 0, overflow: 'hidden', backgroundColor: 'var(--surface-container-low)' }}>
+																<div 
+																	onClick={() => setExpandedClarificationIndex(isExpanded ? null : i)}
+																	style={{ 
+																		padding: '12px', 
+																		cursor: 'pointer', 
+																		display: 'flex', 
+																		justifyContent: 'space-between', 
+																		alignItems: 'center',
+																		backgroundColor: isExpanded ? 'rgba(0, 174, 239, 0.1)' : 'transparent'
+																	}}
+																>
+																	<div className="mono-data" style={{ fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
+																		<span style={{ color: 'var(--primary-cyan)' }}>#{i + 1}</span>
+																		<span style={{ opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '500px' }}>
+																			{questionText.split('\n')[0].substring(0, 80)}...
+																		</span>
+																	</div>
+																	<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+																		{!clar.answer && <span className="status-pip bg-alert-amber pulse"></span>}
+																		<span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--outline)' }}>
+																			{isExpanded ? 'expand_less' : 'expand_more'}
+																		</span>
+																	</div>
+																</div>
+																{isExpanded && (
+																	<div style={{ padding: '16px', borderTop: '1px solid var(--outline-variant)', display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: 'var(--surface-container-lowest)' }}>
+																		<div style={{ 
+																			maxHeight: '200px', 
+																			overflowY: 'auto', 
+																			padding: '12px', 
+																			backgroundColor: 'var(--surface-container-low)', 
+																			borderLeft: '3px solid var(--primary-cyan)',
+																			fontSize: '13px'
+																		}}>
+																			<MarkdownViewer content={questionText} />
+																		</div>
+																		
+																		{clar.answer ? (
+																			<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+																				<div className="mono-data" style={{ padding: '12px', backgroundColor: 'rgba(0, 174, 239, 0.05)', borderRadius: '4px' }}>
+																					<div className="label-caps" style={{ fontSize: '9px', color: 'var(--primary-cyan)', marginBottom: '4px' }}>RESPONSE</div>
+																					<div style={{ fontSize: '12px', color: 'var(--on-surface)' }}>{clar.answer}</div>
+																				</div>
+																				<button 
+																					className="btn-telemetry-filter mono-data" 
+																					style={{ alignSelf: 'flex-end', padding: '4px 12px', fontSize: '10px' }}
+																					onClick={() => handleAnswerClarification(selectedTask, i, clar.answer)}
+																				>
+																					RESUBMIT RESPONSE
+																				</button>
+																			</div>
+																		) : (
+																			<div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+																				<div className="label-caps" style={{ fontSize: '9px', color: 'var(--alert-amber)' }}>AWAITING RESPONSE</div>
+																				<textarea 
+																					className="terminal-input mono-data" 
+																					style={{ minHeight: '100px', fontSize: '12px', width: '100%' }}
+																					placeholder="Provide details to resume task execution..."
+																					value={clarificationAnswers[i] || ''}
+																					onChange={e => setClarificationAnswers(prev => ({ ...prev, [i]: e.target.value }))}
+																				/>
+																				<button 
+																					className="btn-initialize" 
+																					style={{ alignSelf: 'flex-end', padding: '8px 24px' }}
+																					onClick={() => handleAnswerClarification(selectedTask, i, clarificationAnswers[i])}
+																				>
+																					SUBMIT CLARIFICATION
+																				</button>
+																			</div>
+																		)}
+																	</div>
+																)}
+															</div>
+														);
+													}) : (
+														<div className="mono-data" style={{ fontSize: '11px', opacity: 0.5, textAlign: 'center', padding: '24px', border: '1px dashed var(--outline-variant)' }}>
+															No active clarification requests.
+														</div>
+													)}
+												</div>
+											</div>
+
+											<div>
+												<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)', marginBottom: '8px' }}>RESULT</div>
+												<div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '8px' }}>
+													<div className="mono-data" style={{ fontSize: '12px', backgroundColor: 'var(--surface-container-low)', padding: '16px', borderLeft: '3px solid var(--primary-cyan)', minHeight: '100px', whiteSpace: 'pre-wrap' }}>
+														{selectedTask.result ? (
+															typeof selectedTask.result === 'string' ? selectedTask.result : JSON.stringify(selectedTask.result, null, 2)
+														) : 'Awaiting result...'}
+													</div>
+												</div>
+											</div>
+										</div>
+										<footer className="modal-footer">
+											<button className="btn-telemetry-filter-active mono-data" onClick={() => setSelectedTask(null)}>CLOSE</button>
 										</footer>
 									</div>
 								</div>

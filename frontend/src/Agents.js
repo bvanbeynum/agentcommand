@@ -89,10 +89,10 @@ const Agents = () => {
 						onClick={() => setSelectedAgent(agent.id)}
 					>
 						<div className="flex-center-gap-8">
-							<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '20px' }}>{getIcon(agent.id)}</span>
+							<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '20px' }}>{getIcon(agent.role)}</span>
 							<div>
-								<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface)' }}>{agent.id}</div>
-								<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', lineHeight: 1 }}>ROLE: {agent.role}</div>
+								<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface)' }}>{agent.role}</div>
+								<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', lineHeight: 1 }}>ID: {agent.id.slice(-6)}</div>
 							</div>
 						</div>
 						<div className="status-pip" style={{ backgroundColor: agent.status === 'online' ? 'var(--primary-cyan)' : 'var(--outline)' }}></div>
@@ -105,11 +105,11 @@ const Agents = () => {
 				{/* Agent Header */}
 				<header className="agent-header">
 					<div>
-						<h1 className="headline-lg uppercase" style={{ margin: 0, fontSize: '32px' }}>{selectedAgentData.id}</h1>
+						<h1 className="headline-lg uppercase" style={{ margin: 0, fontSize: '32px' }}>{selectedAgentData.role}</h1>
 						<div className="agent-meta-container">
 							<div className="agent-meta-item">
-								<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '14px' }}>engineering</span>
-								<span className="uppercase">ROLE: {selectedAgentData.role}</span>
+								<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '14px' }}>id_card</span>
+								<span className="uppercase">ID: {selectedAgentData.id}</span>
 							</div>
 							<span style={{ color: 'var(--outline-variant)' }}>/</span>
 							<div className="agent-meta-item">

@@ -52,5 +52,9 @@ export const api = {
 	createTask: async (req, res) => {
 		const result = await dataLayer.createTask(req.body);
 		res.status(result.status).json(result);
+	},
+	updateTask: async (req, res) => {
+		const result = await dataLayer.updateTask(req.params.id, req.body);
+		res.status(result.status).json(result);
 	}
 };

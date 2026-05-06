@@ -384,6 +384,12 @@ tr:hover {
 	gap: 8px;
 }
 
+.flex-justify-between {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
 .flex-column-gap-8 {
 	display: flex;
 	flex-direction: column;

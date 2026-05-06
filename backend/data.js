@@ -3,6 +3,14 @@ import { config } from '../config.js';
 
 const { Schema } = mongoose;
 
+const agentSchema = new Schema({
+	role: { type: String, required: true },
+	instructions: { type: String },
+	tools: { type: Array, default: [] },
+	status: { type: String, default: 'offline' },
+	created: { type: Date, default: Date.now }
+}, { collection: 'agents' });
+
 const taskSchema = new Schema({
 	to: { type: String, required: true },
 	from: { type: String, required: true },
@@ -18,7 +26,7 @@ const taskSchema = new Schema({
 
 const logSchema = new Schema({
 	taskId: { type: String, ref: 'Task' },
-	agentRole: { type: String, required: true },
+	agentId: { type: String, required: true },
 	level: { type: String, required: true },
 	message: { type: String, required: true },
 	context: { type: Object, default: {} },
@@ -30,12 +38,13 @@ const artifactSchema = new Schema({
 	artifactName: { type: String, required: true },
 	content: { type: Schema.Types.Mixed, required: true },
 	taskId: { type: String, ref: 'Task' },
-	agentRole: { type: String },
+	agentId: { type: String },
 	metadata: { type: Object, default: {} },
 	updatedAt: { type: Date },
 	created: { type: Date, default: Date.now }
 }, { collection: 'artifacts' });
 
+const Agent = mongoose.model('Agent', agentSchema);
 const Task = mongoose.model('Task', taskSchema);
 const Log = mongoose.model('Log', logSchema);
 const Artifact = mongoose.model('Artifact', artifactSchema);
@@ -139,14 +148,14 @@ export const dataLayer = {
 	},
 	getAgents: async () => {
 		try {
-			const agents = await Task.distinct('to').exec();
+			const agents = await Agent.find().lean().exec();
 			const activeTasks = await Task.find({ status: 'active' }).select('to').exec();
-			const activeAgentRoles = activeTasks.map(t => t.to);
+			const activeAgentIds = activeTasks.map(t => t.to);
 
-			const roster = agents.map(role => ({
-				id: role,
-				role: role.toUpperCase(),
-				status: activeAgentRoles.includes(role) ? 'online' : 'offline'
+			const roster = agents.map(agent => ({
+				id: agent._id.toString(),
+				role: agent.role,
+				status: activeAgentIds.includes(agent._id.toString()) ? 'online' : 'offline'
 			}));
 
 			return { status: 200, data: roster };
@@ -154,19 +163,22 @@ export const dataLayer = {
 			return { status: 560, error: error.message };
 		}
 	},
-	getAgentDetails: async (role) => {
+	getAgentDetails: async (agentId) => {
 		try {
-			const rawTasks = await Task.find({ to: role }).sort({ created: -1 }).limit(20).lean().exec();
+			const agent = await Agent.findById(agentId).lean().exec();
+			if (!agent) return { status: 404, error: 'Agent not found' };
+
+			const rawTasks = await Task.find({ to: agentId }).sort({ created: -1 }).limit(20).lean().exec();
 			const tasks = sanitize(rawTasks);
 
 			// Use the enhanced getLogs logic for consistency
-			const logsResult = await dataLayer.getLogs({ agentRole: role }, 50);
+			const logsResult = await dataLayer.getLogs({ agentId }, 50);
 			const logs = logsResult.status === 200 ? logsResult.data : [];
 
-			// Infer artifacts from taskId or agentRole
+			// Infer artifacts from taskId or agentId
 			const artifacts = await Artifact.find({ 
 				$or: [
-					{ agentRole: role },
+					{ agentId },
 					{ taskId: { $in: rawTasks.map(t => t._id.toString()) } }
 				]
 			}).sort({ created: -1 }).lean().exec();
@@ -181,10 +193,10 @@ export const dataLayer = {
 			return {
 				status: 200,
 				data: {
-					id: role,
-					role: role.toUpperCase(),
-					created: tasks.length > 0 ? tasks[tasks.length - 1].created : new Date(),
-					lastActivity: tasks.length > 0 ? tasks[0].created : new Date(),
+					id: agentId,
+					role: agent.role,
+					created: agent.created,
+					lastActivity: tasks.length > 0 ? tasks[0].created : agent.created,
 					project: tasks.length > 0 ? tasks[0].metadata?.projectName : 'NONE',
 					history: projectHistory,
 					artifacts: sanitize(artifacts).map(a => ({ 
@@ -211,7 +223,12 @@ export const dataLayer = {
 	getAgentStats: async () => {
 		try {
 			// Basic stats
-			const totalAgents = await Task.distinct('to').exec();
+			const agents = await Agent.find().lean().exec();
+			const agentMap = agents.reduce((acc, a) => {
+				acc[a._id.toString()] = a.role;
+				return acc;
+			}, {});
+
 			const activeTasks = await Task.countDocuments({ status: 'active' }).exec();
 			const completed24h = await Task.countDocuments({ 
 				status: 'done', 
@@ -229,7 +246,7 @@ export const dataLayer = {
 
 			const maxCount = topAgentsRaw.length > 0 ? topAgentsRaw[0].count : 1;
 			const topAgents = topAgentsRaw.map(a => ({
-				id: a._id,
+				id: agentMap[a._id] || a._id,
 				percentage: Math.round((a.count / maxCount) * 100)
 			}));
 
@@ -247,7 +264,6 @@ export const dataLayer = {
 			]).exec();
 
 			// Resource Matrix (Matrix of Agents vs Projects)
-			// We'll get the last 5 active projects and cross-reference with top agents or all agents
 			const recentProjects = projectQueue.slice(0, 5).map(p => p._id).filter(Boolean);
 			const matrixData = await Task.aggregate([
 				{ $match: { 'metadata.projectName': { $in: recentProjects } } },
@@ -259,9 +275,9 @@ export const dataLayer = {
 
 			const resourceMatrix = {
 				projects: recentProjects,
-				agents: totalAgents.slice(0, 5), // Limit to top 5 for UI consistency
+				agents: agents.slice(0, 5).map(a => a.role),
 				assignments: matrixData.map(m => ({
-					agent: m._id.agent,
+					agent: agentMap[m._id.agent] || m._id.agent,
 					project: m._id.project,
 					lastInteraction: m.lastInteraction
 				}))
@@ -270,7 +286,7 @@ export const dataLayer = {
 			return { 
 				status: 200, 
 				data: {
-					totalAgents: totalAgents.length,
+					totalAgents: agents.length,
 					activeTasks,
 					completed24h,
 					historicalTasksCompleted,
@@ -290,6 +306,12 @@ export const dataLayer = {
 	},
 	getProjects: async () => {
 		try {
+			const agents = await Agent.find().lean().exec();
+			const agentMap = agents.reduce((acc, a) => {
+				acc[a._id.toString()] = a.role;
+				return acc;
+			}, {});
+
 			const projects = await Task.aggregate([
 				{ $sort: { created: -1 } },
 				{ $group: {
@@ -298,7 +320,7 @@ export const dataLayer = {
 					lastUpdate: { $max: '$created' },
 					status: { $first: '$status' },
 					description: { $first: '$payload.instruction' },
-					lastAgent: { $first: '$to' }
+					lastAgentId: { $first: '$to' }
 				}},
 				{ $sort: { lastUpdate: -1 } }
 			]).exec();
@@ -311,7 +333,7 @@ export const dataLayer = {
 					description: p.description || 'No description available',
 					status: p.status === 'active' ? 'EXECUTION' : (p.status === 'done' ? 'COMPLETED' : 'PLANNING'),
 					lastUpdate: p.lastUpdate,
-					lastAgent: p.lastAgent || 'SYSTEM'
+					lastAgent: agentMap[p.lastAgentId] || 'SYSTEM'
 				}))
 			};
 		} catch (error) {
@@ -322,6 +344,12 @@ export const dataLayer = {
 		try {
 			const tasks = await Task.find({ 'metadata.projectName': projectId }).sort({ created: -1 }).lean().exec();
 			const taskIds = tasks.map(t => t._id.toString());
+			const agentIds = Array.from(new Set(tasks.map(t => t.to)));
+			const projectAgents = await Agent.find({ _id: { $in: agentIds } }).lean().exec();
+			const agentMap = projectAgents.reduce((acc, a) => {
+				acc[a._id.toString()] = a;
+				return acc;
+			}, {});
 
 			// Use aggregation for logs to ensure we get projectName and correctly match string taskIds
 			const logsResult = await dataLayer.getLogs({
@@ -334,12 +362,13 @@ export const dataLayer = {
 
 			const artifacts = await Artifact.find({ projectName: projectId }).sort({ created: -1 }).lean().exec();
 
-			const agents = Array.from(new Set(tasks.map(t => t.to))).map(role => {
-				const latestAgentTask = tasks.find(t => t.to === role);
+			const agents = agentIds.map(agentId => {
+				const agentDoc = agentMap[agentId];
+				const latestAgentTask = tasks.find(t => t.to === agentId);
 				return {
-					id: role,
-					role: role.toUpperCase(),
-					status: tasks.some(t => t.to === role && t.status === 'active') ? 'online' : 'offline',
+					id: agentId,
+					role: agentDoc ? agentDoc.role : 'UNKNOWN',
+					status: tasks.some(t => t.to === agentId && t.status === 'active') ? 'online' : 'offline',
 					lastUpdate: latestAgentTask ? latestAgentTask.created : null
 				};
 			});
@@ -417,6 +446,14 @@ export const dataLayer = {
 			});
 			const savedTask = await task.save();
 			return { status: 201, data: sanitize(savedTask.toObject()) };
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
+	updateTask: async (id, updateData) => {
+		try {
+			const updatedTask = await Task.findByIdAndUpdate(id, updateData, { new: true }).lean().exec();
+			return { status: 200, data: sanitize(updatedTask) };
 		} catch (error) {
 			return { status: 560, error: error.message };
 		}

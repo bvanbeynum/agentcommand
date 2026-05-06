@@ -199,7 +199,7 @@ const Overview = ({ data, timeRange, setTimeRange }) => {
 						{/* Rows */}
 						{stats?.resourceMatrix?.agents?.map((agent, i) => (
 							<React.Fragment key={i}>
-								<div className="matrix-row-label mono-data">{agent.split('-').pop()}</div>
+								<div className="matrix-row-label mono-data">{agent?.split('-').pop() || agent}</div>
 								{stats.resourceMatrix.projects.map((project, j) => {
 									const assignment = stats.resourceMatrix.assignments.find(a => a.agent === agent && a.project === project);
 									let cellClass = "";
