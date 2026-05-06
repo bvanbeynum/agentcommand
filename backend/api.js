@@ -41,6 +41,10 @@ export const api = {
 		const result = await dataLayer.getAgentDetails(req.params.id);
 		res.status(result.status).json(result);
 	},
+	updateAgent: async (req, res) => {
+		const result = await dataLayer.updateAgent(req.params.id, req.body);
+		res.status(result.status).json(result);
+	},
 	getProjects: async (req, res) => {
 		const result = await dataLayer.getProjects();
 		res.status(result.status).json(result);
@@ -55,6 +59,14 @@ export const api = {
 	},
 	updateTask: async (req, res) => {
 		const result = await dataLayer.updateTask(req.params.id, req.body);
+		res.status(result.status).json(result);
+	},
+	createSession: async (req, res) => {
+		const result = await dataLayer.createSession(req.body);
+		res.status(result.status).json(result);
+	},
+	updateSession: async (req, res) => {
+		const result = await dataLayer.updateSession(req.params.id, req.body);
 		res.status(result.status).json(result);
 	}
 };

@@ -9,6 +9,18 @@ const Agents = () => {
 	const [expandedLogIndex, setExpandedLogIndex] = useState(null);
 	const [selectedArtifact, setSelectedArtifact] = useState(null);
 	
+	const [showInstructionsModal, setShowInstructionsModal] = useState(false);
+	const [showToolsModal, setShowToolsModal] = useState(false);
+	const [editInstructions, setEditInstructions] = useState('');
+	const [isEditingInstructions, setIsEditingInstructions] = useState(false);
+	const [activeTools, setActiveTools] = useState([]);
+	const [chatInput, setChatInput] = useState('');
+
+	const availableTools = [
+		'writeFile', 'runCommand', 'readProjectFile', 'addProjectArtifact', 
+		'readProjectArtifact', 'assignTask', 'askClarifyingQuestions'
+	];
+	
 	useEffect(() => {
 		const fetchRoster = async () => {
 			try {
@@ -35,6 +47,8 @@ const Agents = () => {
 				const json = await res.json();
 				if (json.status === 200) {
 					setSelectedAgentData(json.data);
+					setEditInstructions(json.data.instructions);
+					setActiveTools(json.data.tools || []);
 				}
 			} catch (err) {
 				console.error('Failed to fetch details:', err);
@@ -46,18 +60,86 @@ const Agents = () => {
 		return () => clearInterval(interval);
 	}, [selectedAgent]);
 
+	const handleSaveAgent = async (updateData) => {
+		try {
+			const res = await fetch(`/api/agents/${selectedAgent}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(updateData)
+			});
+			const json = await res.json();
+			if (json.status === 200) {
+				setSelectedAgentData(prev => ({ ...prev, ...updateData }));
+			}
+		} catch (err) {
+			console.error('Failed to save agent updates:', err);
+		}
+	};
+
+	const handleChatSubmit = async (e) => {
+		e.preventDefault();
+		if (!chatInput.trim() || !selectedAgentData) return;
+
+		const activeSessionStatuses = ['user_turn', 'agent_turn', 'active'];
+		const activeSession = selectedAgentData.sessions?.find(s => activeSessionStatuses.includes(s.status));
+		const newMessage = { role: 'user', content: chatInput, timestamp: new Date() };
+
+		try {
+			if (!activeSession) {
+				const res = await fetch('/api/sessions', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						assignedAgentId: selectedAgent,
+						status: 'agent_turn',
+						messages: [newMessage]
+					})
+				});
+				if (res.ok) {
+					setChatInput('');
+					const resDetails = await fetch(`/api/agents/${selectedAgent}`);
+					const jsonDetails = await resDetails.json();
+					if (jsonDetails.status === 200) setSelectedAgentData(jsonDetails.data);
+				}
+			} else {
+				if (activeSession.status !== 'user_turn') return; // Double check safety
+				const updatedMessages = [...activeSession.messages, newMessage];
+				const res = await fetch(`/api/sessions/${activeSession.id}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						messages: updatedMessages,
+						status: 'agent_turn'
+					})
+				});
+				if (res.ok) {
+					setChatInput('');
+					setSelectedAgentData(prev => ({
+						...prev,
+						sessions: prev.sessions.map(s => 
+							s.id === activeSession.id ? { ...s, messages: updatedMessages, status: 'agent_turn' } : s
+						)
+					}));
+				}
+			}
+		} catch (err) {
+			console.error('Failed to send chat message:', err);
+		}
+	};
+
 	// Separate effect to reset expanded states on agent change
 	useEffect(() => {
 		setExpandedTaskIndex(null);
 		setExpandedLogIndex(null);
+		setChatInput('');
 	}, [selectedAgent]);
 
-	const getIcon = (role) => {
-		const r = role?.toLowerCase() || '';
-		if (r.includes('architect')) return 'architecture';
-		if (r.includes('developer') || r.includes('node')) return 'code';
-		if (r.includes('designer')) return 'brush';
-		if (r.includes('analyst')) return 'analytics';
+	const getIcon = (name) => {
+		const n = name?.toLowerCase() || '';
+		if (n.includes('architect')) return 'architecture';
+		if (n.includes('developer') || n.includes('node')) return 'code';
+		if (n.includes('designer')) return 'brush';
+		if (n.includes('analyst')) return 'analytics';
 		return 'memory';
 	};
 
@@ -89,9 +171,9 @@ const Agents = () => {
 						onClick={() => setSelectedAgent(agent.id)}
 					>
 						<div className="flex-center-gap-8">
-							<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '20px' }}>{getIcon(agent.role)}</span>
+							<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '20px' }}>{getIcon(agent.name)}</span>
 							<div>
-								<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface)' }}>{agent.role}</div>
+								<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface)' }}>{agent.name}</div>
 								<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', lineHeight: 1 }}>ID: {agent.id.slice(-6)}</div>
 							</div>
 						</div>
@@ -102,35 +184,93 @@ const Agents = () => {
 
 			{/* Drill-down View */}
 			<div className="agent-drill-down">
-				{/* Agent Header */}
-				<header className="agent-header">
-					<div>
-						<h1 className="headline-lg uppercase" style={{ margin: 0, fontSize: '32px' }}>{selectedAgentData.role}</h1>
-						<div className="agent-meta-container">
-							<div className="agent-meta-item">
-								<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '14px' }}>id_card</span>
-								<span className="uppercase">ID: {selectedAgentData.id}</span>
-							</div>
-							<span style={{ color: 'var(--outline-variant)' }}>/</span>
-							<div className="agent-meta-item">
-								<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '14px' }}>calendar_today</span>
-								<span className="uppercase">CREATED: {new Date(selectedAgentData.created).toLocaleDateString()}</span>
-							</div>
-							<span style={{ color: 'var(--outline-variant)' }}>/</span>
-							<div className="agent-meta-item">
-								<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '14px' }}>history</span>
-								<span className="uppercase">LAST ACTIVITY: {new Date(selectedAgentData.lastActivity).toLocaleTimeString()}</span>
-							</div>
-							<span style={{ color: 'var(--outline-variant)' }}>/</span>
-							<div className="agent-meta-item">
-								<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '14px' }}>folder</span>
-								<span className="uppercase">PROJECT: {selectedAgentData.project}</span>
-							</div>
-						</div>
+				<div className="portal-btn-container">
+					<div className="portal-btn" onClick={() => setShowInstructionsModal(true)}>
+						<span className="material-symbols-outlined">description</span>
+						<span className="label">Agent<br/>Instructions</span>
 					</div>
-				</header>
+					<div className="portal-btn" onClick={() => setShowToolsModal(true)}>
+						<span className="material-symbols-outlined">construction</span>
+						<span className="label">Tool<br/>Configuration</span>
+					</div>
+					<div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+						<h1 className="headline-lg uppercase" style={{ margin: 0, fontSize: '32px', color: 'var(--primary-cyan)' }}>{selectedAgentData.name}</h1>
+						<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>ID: {selectedAgentData.id}</div>
+						<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>PROJECT: {selectedAgentData.project}</div>
+					</div>
+				</div>
 
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--gutter)' }}>
+				{/* Chat Session Terminal */}
+				{(() => {
+					const activeSessionStatuses = ['user_turn', 'agent_turn', 'active'];
+					const activeSession = selectedAgentData.sessions?.find(s => activeSessionStatuses.includes(s.status));
+					const canChat = !activeSession || activeSession.status === 'user_turn';
+					const statusLabel = activeSession ? (activeSession.status === 'user_turn' ? 'YOUR TURN' : 'AGENT PROCESSING') : 'READY';
+
+					return (
+						<section className="chat-terminal-container bento-card" style={{ padding: 0, marginBottom: '24px' }}>
+							<div className="chat-terminal-header">
+								<div className="flex-center-gap-8">
+									<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '16px' }}>forum</span>
+									<span className="label-caps" style={{ fontSize: '10px' }}>ACTIVE CHAT SESSION :: {statusLabel}</span>
+								</div>
+								<div className={`status-pip ${activeSession?.status === 'user_turn' ? 'bg-primary-cyan' : 'bg-alert-amber'} pulse`}></div>
+							</div>
+							<div className="chat-log-stream mono-data">
+								{activeSession?.messages.map((msg, i) => (
+									<div key={i} className={`chat-entry ${msg.role === 'user' ? 'chat-entry-user' : 'chat-entry-agent'}`}>
+										<div className="chat-entry-header">
+											<span className="uppercase" style={{ color: msg.role === 'user' ? 'var(--primary-cyan)' : 'var(--alert-amber)' }}>
+												{msg.role === 'user' ? 'USER' : selectedAgentData.name}
+											</span>
+											<span style={{ opacity: 0.5 }}>— {new Date(msg.timestamp || Date.now()).toLocaleTimeString()}</span>
+										</div>
+										<div className="chat-entry-content">{msg.content}</div>
+									</div>
+								))}
+								{!activeSession && (
+									<div className="flex-center" style={{ height: '100%', opacity: 0.3 }}>
+										<span className="label-caps">START TYPING TO BEGIN A SESSION</span>
+									</div>
+								)}
+							</div>
+							<form className="chat-input-container" onSubmit={handleChatSubmit}>
+								<input 
+									type="text" 
+									className="chat-input" 
+									placeholder={canChat ? "Type a message to start or continue the chat..." : "Waiting for agent to respond..."}
+									value={chatInput}
+									onChange={(e) => setChatInput(e.target.value)}
+									disabled={!canChat}
+								/>
+								<button type="submit" className="chat-send-btn" disabled={!chatInput.trim() || !canChat}>
+									<span className="material-symbols-outlined">send</span>
+								</button>
+							</form>
+						</section>
+					);
+				})()}
+
+				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--gutter)', marginBottom: '24px' }}>
+					{/* Session History */}
+					<section className="bento-card">
+						<h2 className="label-caps flex-center-gap-8" style={{ color: 'var(--on-surface-variant)', marginBottom: '16px' }}>
+							<span className="material-symbols-outlined" style={{ fontSize: '16px' }}>history_edu</span> SESSION HISTORY
+						</h2>
+						<ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+							{selectedAgentData.sessions?.filter(s => !['user_turn', 'agent_turn', 'active'].includes(s.status)).map((s, i) => (
+								<li key={i} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: i < selectedAgentData.sessions.length - 1 ? '1px solid var(--outline-variant)' : 'none', paddingBottom: '8px' }}>
+									<div className="flex-column">
+										<span className="mono-data" style={{ fontSize: '12px' }}>{s.summary || 'Planning Session'}</span>
+										<span className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>{new Date(s.created).toLocaleDateString()}</span>
+									</div>
+									<span className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>{s.status.toUpperCase()}</span>
+								</li>
+							))}
+							{(!selectedAgentData.sessions || selectedAgentData.sessions.filter(s => s.status !== 'active').length === 0) && <div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>No historical sessions.</div>}
+						</ul>
+					</section>
+
 					{/* Project History */}
 					<section className="bento-card">
 						<h2 className="label-caps flex-center-gap-8" style={{ color: 'var(--on-surface-variant)', marginBottom: '16px' }}>
@@ -194,55 +334,8 @@ const Agents = () => {
 					</div>
 				)}
 
-				{/* Recent Task Stream */}
-				<section className="bento-card">
-					<h2 className="label-caps flex-center-gap-8" style={{ color: 'var(--on-surface-variant)', marginBottom: '16px' }}>
-						<span className="material-symbols-outlined" style={{ fontSize: '16px' }}>stream</span> RECENT TASK STREAM
-					</h2>
-					<div className="timeline-container">
-						{selectedAgentData.tasks.map((task, i) => (
-							<div 
-								key={i} 
-								className="timeline-item"
-								style={{ display: 'flex', flexDirection: 'column', gap: '4px', position: 'relative', cursor: 'pointer' }}
-								onClick={() => setExpandedTaskIndex(expandedTaskIndex === i ? null : i)}
-							>
-								<div className={`timeline-node ${task.active ? 'timeline-node-active' : ''}`} style={{ top: '4px' }}></div>
-								<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-									<span className="mono-data" style={{ fontSize: '10px', backgroundColor: 'var(--surface-variant)', padding: '0 4px', border: '1px solid var(--outline-variant)' }}>{task.id}</span>
-									<span className="mono-data" style={{ fontSize: '12px', fontWeight: expandedTaskIndex === i ? '600' : '400' }}>{task.desc}</span>
-								</div>
-								<span className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>{new Date(task.time).toLocaleString()}</span>
-								
-								{expandedTaskIndex === i && (
-									<div className="task-context-panel mono-data" style={{ 
-										marginTop: '8px', 
-										padding: '12px', 
-										backgroundColor: 'var(--surface-container-low)', 
-										border: '1px solid var(--outline-variant)',
-										fontSize: '11px',
-										color: 'var(--on-surface-variant)',
-										whiteSpace: 'pre-wrap',
-										wordBreak: 'break-all'
-									}}>
-										<div style={{ marginBottom: '8px', color: 'var(--primary-cyan)', fontWeight: 'bold' }}>TASK CONTEXT:</div>
-										{JSON.stringify(task.payload, null, 2)}
-										{task.metadata && (
-											<>
-												<div style={{ marginTop: '12px', marginBottom: '8px', color: 'var(--primary-cyan)', fontWeight: 'bold' }}>METADATA:</div>
-												{JSON.stringify(task.metadata, null, 2)}
-											</>
-										)}
-									</div>
-								)}
-							</div>
-						))}
-						{selectedAgentData.tasks.length === 0 && <div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>No tasks in stream.</div>}
-					</div>
-				</section>
-
 				{/* Work Log Terminal */}
-				<section className="terminal-container">
+				<section className="terminal-container" style={{ gridColumn: 'span 12' }}>
 					<div className="terminal-header">
 						<span className="mono-data uppercase" style={{ fontSize: '10px', letterSpacing: '0.15em' }}>WORK LOG STREAM :: LIVE</span>
 						<div style={{ display: 'flex', gap: '4px' }}>
@@ -320,6 +413,111 @@ const Agents = () => {
 						})}
 					</div>
 				</section>
+
+				{/* Instructions Modal */}
+				{showInstructionsModal && (
+					<div className="modal-overlay" onClick={() => setShowInstructionsModal(false)}>
+						<div className="modal-content bento-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+							<header className="modal-header">
+								<div>
+									<h2 className="label-caps" style={{ margin: 0 }}>AGENT INSTRUCTIONS</h2>
+									<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>
+										NAME: {selectedAgentData.name}
+									</div>
+								</div>
+								<div style={{ display: 'flex', gap: '8px' }}>
+									<button 
+										className={`btn-telemetry-filter${!isEditingInstructions ? '-active' : ''} mono-data`}
+										onClick={() => setIsEditingInstructions(false)}
+									>VIEW</button>
+									<button 
+										className={`btn-telemetry-filter${isEditingInstructions ? '-active' : ''} mono-data`}
+										onClick={() => setIsEditingInstructions(true)}
+									>EDIT</button>
+								</div>
+								<button className="modal-close-btn" onClick={() => setShowInstructionsModal(false)}>
+									<span className="material-symbols-outlined">close</span>
+								</button>
+							</header>
+							<div className="modal-body scrollable-y" style={{ minHeight: '400px' }}>
+								{isEditingInstructions ? (
+									<textarea 
+										className="mono-data"
+										style={{ 
+											width: '100%', 
+											height: '100%', 
+											minHeight: '400px',
+											backgroundColor: 'var(--surface-container-lowest)',
+											border: '1px solid var(--outline-variant)',
+											padding: '16px',
+											resize: 'none',
+											boxSizing: 'border-box'
+										}}
+										value={editInstructions}
+										onChange={(e) => setEditInstructions(e.target.value)}
+										placeholder="Enter markdown instructions here..."
+									/>
+								) : (
+									<MarkdownViewer content={selectedAgentData.instructions || 'No instructions provided.'} />
+								)}
+							</div>
+							<footer className="modal-footer" style={{ justifyContent: 'flex-end', gap: '12px' }}>
+								<button className="btn-telemetry-filter mono-data" onClick={() => setShowInstructionsModal(false)}>CANCEL</button>
+								<button 
+									className="btn-telemetry-filter-active mono-data" 
+									onClick={() => {
+										handleSaveAgent({ instructions: editInstructions });
+										setShowInstructionsModal(false);
+									}}
+								>SAVE CHANGES</button>
+							</footer>
+						</div>
+					</div>
+				)}
+
+				{/* Tools Modal */}
+				{showToolsModal && (
+					<div className="modal-overlay" onClick={() => setShowToolsModal(false)}>
+						<div className="modal-content bento-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+							<header className="modal-header">
+								<h2 className="label-caps" style={{ margin: 0 }}>TOOL CONFIGURATION</h2>
+								<button className="modal-close-btn" onClick={() => setShowToolsModal(false)}>
+									<span className="material-symbols-outlined">close</span>
+								</button>
+							</header>
+							<div className="modal-body">
+								<div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+									{availableTools.map(tool => (
+										<label key={tool} className="flex-center-gap-8" style={{ cursor: 'pointer', padding: '8px', backgroundColor: 'var(--surface-container-low)', borderRadius: '4px' }}>
+											<input 
+												type="checkbox" 
+												checked={activeTools.includes(tool)}
+												onChange={(e) => {
+													if (e.target.checked) {
+														setActiveTools([...activeTools, tool]);
+													} else {
+														setActiveTools(activeTools.filter(t => t !== tool));
+													}
+												}}
+											/>
+											<span className="mono-data" style={{ fontSize: '12px' }}>{tool}</span>
+										</label>
+									))}
+								</div>
+							</div>
+							<footer className="modal-footer" style={{ justifyContent: 'flex-end', gap: '12px' }}>
+								<button className="btn-telemetry-filter mono-data" onClick={() => setShowToolsModal(false)}>CANCEL</button>
+								<button 
+									className="btn-telemetry-filter-active mono-data" 
+									onClick={() => {
+										handleSaveAgent({ tools: activeTools });
+										setShowToolsModal(false);
+									}}
+								>APPLY TOOLS</button>
+							</footer>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);

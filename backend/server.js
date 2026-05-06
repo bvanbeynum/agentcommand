@@ -20,10 +20,13 @@ app.get('/api/logs', api.getLogs);
 app.get('/api/artifacts', api.getArtifacts);
 app.get('/api/agents', api.getAgents);
 app.get('/api/agents/:id', api.getAgentDetails);
+app.put('/api/agents/:id', api.updateAgent);
 app.get('/api/projects', api.getProjects);
 app.get('/api/projects/:id', api.getProjectDetails);
 app.post('/api/tasks', api.createTask);
 app.put('/api/tasks/:id', api.updateTask);
+app.post('/api/sessions', api.createSession);
+app.put('/api/sessions/:id', api.updateSession);
 
 const startServer = async () => {
 	if (IS_DEV) {
