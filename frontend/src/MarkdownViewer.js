@@ -8,7 +8,7 @@ const MarkdownViewer = ({ content }) => {
 		const codeBlocks = [];
 		let html = md.replace(/```(?:[a-z]*)?\n([\s\S]*?)```/gim, (match, code) => {
 			const id = codeBlocks.length;
-			codeBlocks.push(`<pre className="mono-data"><code>${code}</code></pre>`);
+			codeBlocks.push(`<pre class="mono-data"><code>${code}</code></pre>`);
 			return `___CODE_BLOCK_${id}___`;
 		});
 
@@ -22,7 +22,7 @@ const MarkdownViewer = ({ content }) => {
 				const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
 				if (!inTable) {
 					inTable = true;
-					return `<table className="markdown-table"><thead><tr>${cells.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+					return `<table class="markdown-table"><thead><tr>${cells.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
 				} else if (trimmed.includes('---')) {
 					return ''; // Skip the divider line
 				} else {
@@ -52,7 +52,7 @@ const MarkdownViewer = ({ content }) => {
 			.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
 			.replace(/\*\*(.+?)\*\*/gim, '<b>$1</b>')
 			.replace(/\*(.+?)\*/gim, '<i>$1</i>')
-			.replace(/`([^`]+)`/gim, '<code className="inline-code">$1</code>')
+			.replace(/`([^`]+)`/gim, '<code class="inline-code">$1</code>')
 			.replace(/!\[(.*?)\]\((.*?)\)/gim, "<img alt='$1' src='$2' />")
 			.replace(/\[(.*?)\]\((.*?)\)/gim, "<a href='$2'>$1</a>");
 		

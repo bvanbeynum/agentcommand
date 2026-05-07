@@ -285,7 +285,9 @@ const Agents = () => {
 											</span>
 											<span style={{ opacity: 0.5 }}>— {new Date(msg.timestamp || Date.now()).toLocaleTimeString()}</span>
 										</div>
-										<div className="chat-entry-content">{msg.content}</div>
+										<div className="chat-entry-content">
+											<MarkdownViewer content={msg.content} />
+										</div>
 									</div>
 								))}
 								{!activeSession && (

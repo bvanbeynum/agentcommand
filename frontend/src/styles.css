@@ -288,7 +288,24 @@ body {
 	color: #c9d1d9;
 	font-size: 13px;
 	line-height: 1.5;
-	white-space: pre-wrap;
+}
+
+.chat-entry-content .markdown-body {
+	color: inherit;
+}
+
+.chat-entry-content .markdown-body b {
+	color: #ffffff;
+}
+
+.chat-entry-content .markdown-body h1,
+.chat-entry-content .markdown-body h2,
+.chat-entry-content .markdown-body h3 {
+	color: #ffffff;
+}
+
+.chat-entry-content .markdown-body blockquote {
+	color: #8b949e;
 }
 
 .chat-entry-user {
