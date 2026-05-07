@@ -127,6 +127,66 @@ const Agents = () => {
 		}
 	};
 
+	const handleNewSession = async () => {
+		if (!selectedAgentData) return;
+		const activeSessionStatuses = ['user_turn', 'agent_turn', 'active'];
+		const activeSession = selectedAgentData.sessions?.find(s => activeSessionStatuses.includes(s.status));
+		
+		if (activeSession) {
+			try {
+				const res = await fetch(`/api/sessions/${activeSession.id}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						status: 'completed'
+					})
+				});
+				if (res.ok) {
+					const resDetails = await fetch(`/api/agents/${selectedAgent}`);
+					const jsonDetails = await resDetails.json();
+					if (jsonDetails.status === 200) setSelectedAgentData(jsonDetails.data);
+					setChatInput('');
+				}
+			} catch (err) {
+				console.error('Failed to end session:', err);
+			}
+		}
+	};
+
+	const handleResumeSession = async (sessionId) => {
+		if (!selectedAgentData) return;
+		
+		try {
+			// First, mark current active session as completed if it exists
+			const activeSessionStatuses = ['user_turn', 'agent_turn', 'active'];
+			const activeSession = selectedAgentData.sessions?.find(s => activeSessionStatuses.includes(s.status));
+			
+			if (activeSession && activeSession.id !== sessionId) {
+				await fetch(`/api/sessions/${activeSession.id}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ status: 'completed' })
+				});
+			}
+
+			// Now set the target session to user_turn
+			const res = await fetch(`/api/sessions/${sessionId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ status: 'user_turn' })
+			});
+
+			if (res.ok) {
+				const resDetails = await fetch(`/api/agents/${selectedAgent}`);
+				const jsonDetails = await resDetails.json();
+				if (jsonDetails.status === 200) setSelectedAgentData(jsonDetails.data);
+				setChatInput('');
+			}
+		} catch (err) {
+			console.error('Failed to resume session:', err);
+		}
+	};
+
 	// Separate effect to reset expanded states on agent change
 	useEffect(() => {
 		setExpandedTaskIndex(null);
@@ -235,6 +295,11 @@ const Agents = () => {
 								)}
 							</div>
 							<form className="chat-input-container" onSubmit={handleChatSubmit}>
+								{activeSession && (
+									<button type="button" className="chat-send-btn" onClick={handleNewSession} title="Start New Session">
+										<span className="material-symbols-outlined">add_circle</span>
+									</button>
+								)}
 								<input 
 									type="text" 
 									className="chat-input" 
@@ -259,7 +324,12 @@ const Agents = () => {
 						</h2>
 						<ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
 							{selectedAgentData.sessions?.filter(s => !['user_turn', 'agent_turn', 'active'].includes(s.status)).map((s, i) => (
-								<li key={i} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: i < selectedAgentData.sessions.length - 1 ? '1px solid var(--outline-variant)' : 'none', paddingBottom: '8px' }}>
+								<li 
+									key={i} 
+									className="history-item"
+									onClick={() => handleResumeSession(s.id)}
+									style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '8px' }}
+								>
 									<div className="flex-column">
 										<span className="mono-data" style={{ fontSize: '12px' }}>{s.summary || 'Planning Session'}</span>
 										<span className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>{new Date(s.created).toLocaleDateString()}</span>
@@ -267,7 +337,7 @@ const Agents = () => {
 									<span className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>{s.status.toUpperCase()}</span>
 								</li>
 							))}
-							{(!selectedAgentData.sessions || selectedAgentData.sessions.filter(s => s.status !== 'active').length === 0) && <div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>No historical sessions.</div>}
+							{(!selectedAgentData.sessions || selectedAgentData.sessions.filter(s => !['user_turn', 'agent_turn', 'active'].includes(s.status)).length === 0) && <div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>No historical sessions.</div>}
 						</ul>
 					</section>
 
