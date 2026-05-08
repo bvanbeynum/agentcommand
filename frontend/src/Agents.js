@@ -11,6 +11,11 @@ const Agents = () => {
 	
 	const [showInstructionsModal, setShowInstructionsModal] = useState(false);
 	const [showToolsModal, setShowToolsModal] = useState(false);
+	const [showCreateModal, setShowCreateModal] = useState(false);
+	const [newAgentName, setNewAgentName] = useState('');
+	const [newAgentInstructions, setNewAgentInstructions] = useState('');
+	const [newAgentTools, setNewAgentTools] = useState([]);
+
 	const [editInstructions, setEditInstructions] = useState('');
 	const [isEditingInstructions, setIsEditingInstructions] = useState(false);
 	const [activeTools, setActiveTools] = useState([]);
@@ -28,9 +33,6 @@ const Agents = () => {
 				const json = await res.json();
 				if (json.status === 200) {
 					setAgentRoster(json.data);
-					if (json.data.length > 0 && !selectedAgent) {
-						setSelectedAgent(json.data[0].id);
-					}
 				}
 			} catch (err) {
 				console.error('Failed to fetch agent roster:', err);
@@ -73,6 +75,52 @@ const Agents = () => {
 			}
 		} catch (err) {
 			console.error('Failed to save agent updates:', err);
+		}
+	};
+
+	const handleCreateAgent = async () => {
+		if (!newAgentName.trim()) return;
+		try {
+			const res = await fetch('/api/agents', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: newAgentName,
+					instructions: newAgentInstructions,
+					tools: newAgentTools
+				})
+			});
+			const json = await res.json();
+			if (json.status === 201) {
+				setAgentRoster(prev => [...prev, { 
+					id: json.data.id, 
+					name: json.data.name, 
+					status: 'offline' 
+				}]);
+				setSelectedAgent(json.data.id);
+				setShowCreateModal(false);
+				setNewAgentName('');
+				setNewAgentInstructions('');
+				setNewAgentTools([]);
+			}
+		} catch (err) {
+			console.error('Failed to create agent:', err);
+		}
+	};
+
+	const handleDeleteAgent = async () => {
+		if (!selectedAgent || !window.confirm('Are you sure you want to delete this agent?')) return;
+		try {
+			const res = await fetch(`/api/agents/${selectedAgent}`, {
+				method: 'DELETE'
+			});
+			if (res.ok) {
+				setAgentRoster(prev => prev.filter(a => a.id !== selectedAgent));
+				setSelectedAgent(null);
+				setSelectedAgentData(null);
+			}
+		} catch (err) {
+			console.error('Failed to delete agent:', err);
 		}
 	};
 
@@ -203,14 +251,6 @@ const Agents = () => {
 		return 'memory';
 	};
 
-	if (!selectedAgentData && agentRoster.length > 0) {
-		return (
-			<div className="flex-center" style={{ height: '100%', color: 'var(--outline)' }}>
-				<div className="mono-data">SYNCHRONIZING WITH NEURAL NODES...</div>
-			</div>
-		);
-	}
-
 	if (agentRoster.length === 0) {
 		return (
 			<div className="flex-center" style={{ height: '100%', color: 'var(--outline)' }}>
@@ -220,7 +260,7 @@ const Agents = () => {
 	}
 
 	return (
-		<div className="grid-container" style={{ alignItems: 'start' }}>
+		<div className={`grid-container ${selectedAgent ? 'is-detail-open' : ''}`} style={{ alignItems: 'start' }}>
 			{/* Agent List Sidebar */}
 			<aside className="agent-roster-sidebar">
 				<h2 className="roster-header uppercase">AGENT ROSTER</h2>
@@ -230,21 +270,35 @@ const Agents = () => {
 						className={`roster-btn ${selectedAgent === agent.id ? 'roster-btn-active' : ''}`}
 						onClick={() => setSelectedAgent(agent.id)}
 					>
-						<div className="flex-center-gap-8">
-							<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '20px' }}>{getIcon(agent.name)}</span>
-							<div>
-								<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface)' }}>{agent.name}</div>
+						<div className="flex-center-gap-8" style={{ width: '100%', flexWrap: 'nowrap' }}>
+							<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '20px', flexShrink: 0 }}>{getIcon(agent.name)}</span>
+							<div style={{ flex: 1, minWidth: 0 }}>
+								<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface)', wordBreak: 'break-word', whiteSpace: 'normal' }}>{agent.name}</div>
 								<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', lineHeight: 1 }}>ID: {agent.id.slice(-6)}</div>
 							</div>
 						</div>
-						<div className="status-pip" style={{ backgroundColor: agent.status === 'online' ? 'var(--primary-cyan)' : 'var(--outline)' }}></div>
+						<div className="status-pip" style={{ backgroundColor: agent.status === 'online' ? 'var(--primary-cyan)' : 'var(--outline)', flexShrink: 0, marginLeft: '8px' }}></div>
 					</button>
 				))}
+				<button 
+					className="btn-telemetry-filter-active mono-data" 
+					style={{ width: '100%', marginTop: '16px', padding: '12px' }}
+					onClick={() => setShowCreateModal(true)}
+				>
+					+ CREATE NEW AGENT
+				</button>
 			</aside>
 
 			{/* Drill-down View */}
 			<div className="agent-drill-down">
-				<div className="portal-btn-container">
+				<div className="mobile-back-btn" onClick={() => setSelectedAgent(null)}>
+					<span className="material-symbols-outlined">arrow_back</span>
+					<span className="label-caps" style={{ fontSize: '10px' }}>Back to Roster</span>
+				</div>
+
+				{selectedAgentData ? (
+					<>
+						<div className="portal-btn-container">
 					<div className="portal-btn" onClick={() => setShowInstructionsModal(true)}>
 						<span className="material-symbols-outlined">description</span>
 						<span className="label">Agent<br/>Instructions</span>
@@ -253,9 +307,14 @@ const Agents = () => {
 						<span className="material-symbols-outlined">construction</span>
 						<span className="label">Tool<br/>Configuration</span>
 					</div>
+					<div className="portal-btn" style={{ color: 'var(--alert-amber)' }} onClick={handleDeleteAgent}>
+						<span className="material-symbols-outlined">delete</span>
+						<span className="label">Delete<br/>Agent</span>
+					</div>
 					<div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-						<h1 className="headline-lg uppercase" style={{ margin: 0, fontSize: '32px', color: 'var(--primary-cyan)' }}>{selectedAgentData.name}</h1>
+						<h1 className="headline-lg uppercase agent-detail-title" style={{ margin: 0, color: 'var(--primary-cyan)' }}>{selectedAgentData.name}</h1>
 						<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>ID: {selectedAgentData.id}</div>
+
 						<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>PROJECT: {selectedAgentData.project}</div>
 					</div>
 				</div>
@@ -318,7 +377,7 @@ const Agents = () => {
 					);
 				})()}
 
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--gutter)', marginBottom: '24px' }}>
+				<div className="agent-detail-grid">
 					{/* Session History */}
 					<section className="bento-card">
 						<h2 className="label-caps flex-center-gap-8" style={{ color: 'var(--on-surface-variant)', marginBottom: '16px' }}>
@@ -407,7 +466,7 @@ const Agents = () => {
 				)}
 
 				{/* Work Log Terminal */}
-				<section className="terminal-container" style={{ gridColumn: 'span 12' }}>
+				<section className="terminal-container">
 					<div className="terminal-header">
 						<span className="mono-data uppercase" style={{ fontSize: '10px', letterSpacing: '0.15em' }}>WORK LOG STREAM :: LIVE</span>
 						<div style={{ display: 'flex', gap: '4px' }}>
@@ -590,7 +649,92 @@ const Agents = () => {
 						</div>
 					</div>
 				)}
+					</>
+				) : (
+					<div className="bento-card">
+						<div className="label-caps">Neural Node Synchronization</div>
+						<div className="mono-data view-placeholder-text">
+							{selectedAgent ? 'ESTABLISHING SECURE CONNECTION...' : 'AWAITING AGENT SELECTION...'}
+						</div>
+					</div>
+				)}
 			</div>
+
+			{/* Create Agent Modal */}
+			{showCreateModal && (
+				<div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+					<div className="modal-content bento-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+						<header className="modal-header">
+							<h2 className="label-caps" style={{ margin: 0 }}>CREATE NEW AGENT</h2>
+							<button className="modal-close-btn" onClick={() => setShowCreateModal(false)}>
+								<span className="material-symbols-outlined">close</span>
+							</button>
+						</header>
+						<div className="modal-body scrollable-y" style={{ maxHeight: '70vh' }}>
+							<div className="flex-column" style={{ gap: '20px' }}>
+								<div className="flex-column" style={{ gap: '8px' }}>
+									<label className="label-caps" style={{ fontSize: '10px' }}>AGENT NAME</label>
+									<input 
+										type="text" 
+										className="chat-input" 
+										style={{ backgroundColor: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)' }}
+										value={newAgentName}
+										onChange={(e) => setNewAgentName(e.target.value)}
+										placeholder="e.g. Senior Backend Developer"
+									/>
+								</div>
+								<div className="flex-column" style={{ gap: '8px' }}>
+									<label className="label-caps" style={{ fontSize: '10px' }}>INITIAL INSTRUCTIONS</label>
+									<textarea 
+										className="mono-data"
+										style={{ 
+											width: '100%', 
+											height: '150px', 
+											backgroundColor: 'var(--surface-container-lowest)',
+											border: '1px solid var(--outline-variant)',
+											padding: '12px',
+											resize: 'vertical',
+											boxSizing: 'border-box'
+										}}
+										value={newAgentInstructions}
+										onChange={(e) => setNewAgentInstructions(e.target.value)}
+										placeholder="Describe the agent's primary purpose and behavior..."
+									/>
+								</div>
+								<div className="flex-column" style={{ gap: '8px' }}>
+									<label className="label-caps" style={{ fontSize: '10px' }}>TOOL PERMISSIONS</label>
+									<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+										{availableTools.map(tool => (
+											<label key={tool} className="flex-center-gap-8" style={{ cursor: 'pointer', padding: '6px', backgroundColor: 'var(--surface-container-low)', borderRadius: '4px' }}>
+												<input 
+													type="checkbox" 
+													checked={newAgentTools.includes(tool)}
+													onChange={(e) => {
+														if (e.target.checked) {
+															setNewAgentTools([...newAgentTools, tool]);
+														} else {
+															setNewAgentTools(newAgentTools.filter(t => t !== tool));
+														}
+													}}
+												/>
+												<span className="mono-data" style={{ fontSize: '10px' }}>{tool}</span>
+											</label>
+										))}
+									</div>
+								</div>
+							</div>
+						</div>
+						<footer className="modal-footer" style={{ justifyContent: 'flex-end', gap: '12px' }}>
+							<button className="btn-telemetry-filter mono-data" onClick={() => setShowCreateModal(false)}>CANCEL</button>
+							<button 
+								className="btn-telemetry-filter-active mono-data" 
+								onClick={handleCreateAgent}
+								disabled={!newAgentName.trim()}
+							>PROVISION AGENT</button>
+						</footer>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 };

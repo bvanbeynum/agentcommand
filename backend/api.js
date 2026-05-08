@@ -45,6 +45,14 @@ export const api = {
 		const result = await dataLayer.updateAgent(req.params.id, req.body);
 		res.status(result.status).json(result);
 	},
+	createAgent: async (req, res) => {
+		const result = await dataLayer.createAgent(req.body);
+		res.status(result.status).json(result);
+	},
+	deleteAgent: async (req, res) => {
+		const result = await dataLayer.deleteAgent(req.params.id);
+		res.status(result.status).json(result);
+	},
 	getProjects: async (req, res) => {
 		const result = await dataLayer.getProjects();
 		res.status(result.status).json(result);

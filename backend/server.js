@@ -21,6 +21,8 @@ app.get('/api/artifacts', api.getArtifacts);
 app.get('/api/agents', api.getAgents);
 app.get('/api/agents/:id', api.getAgentDetails);
 app.put('/api/agents/:id', api.updateAgent);
+app.post('/api/agents', api.createAgent);
+app.delete('/api/agents/:id', api.deleteAgent);
 app.get('/api/projects', api.getProjects);
 app.get('/api/projects/:id', api.getProjectDetails);
 app.post('/api/tasks', api.createTask);

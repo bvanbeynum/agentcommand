@@ -3,53 +3,62 @@ import Overview from './Overview.js';
 import Agents from './Agents.js';
 import Projects from './Projects.js';
 
-const Sidebar = ({ currentView, setView }) => (
-	<nav className="sidebar">
-		<div className="sidebar-header">
-			<div>
-				<div className="label-caps sidebar-admin-label">System Administrator</div>
-				<div className="text-lg uppercase sidebar-glados-brand">GLaDOS</div>
-				<div className="mono-data sidebar-node-control">NEURAL NODE CONTROL</div>
+const Sidebar = ({ currentView, setView, isOpen, setIsOpen }) => (
+	<>
+		<div 
+			className={`sidebar-overlay ${isOpen ? 'sidebar-overlay-active' : ''}`}
+			onClick={() => setIsOpen(false)}
+		></div>
+		<nav className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
+			<div className="sidebar-header">
+				<div>
+					<div className="label-caps sidebar-admin-label">System Administrator</div>
+					<div className="text-lg uppercase sidebar-glados-brand">GLaDOS</div>
+					<div className="mono-data sidebar-node-control">NEURAL NODE CONTROL</div>
+				</div>
 			</div>
-		</div>
-		<div className="nav-tabs">
-			<a 
-				href="#" 
-				className={`nav-tab ${currentView === 'overview' ? 'active' : ''}`}
-				onClick={(e) => { e.preventDefault(); setView('overview'); }}
-			>
-				<span className="material-symbols-outlined">dashboard</span>
-				<span className="label-caps" style={{ fontSize: '11px' }}>Overview</span>
-			</a>
-			<a 
-				href="#" 
-				className={`nav-tab ${currentView === 'agents' ? 'active' : ''}`}
-				onClick={(e) => { e.preventDefault(); setView('agents'); }}
-			>
-				<span className="material-symbols-outlined">precision_manufacturing</span>
-				<span className="label-caps" style={{ fontSize: '11px' }}>Agents</span>
-			</a>
-			<a 
-				href="#" 
-				className={`nav-tab ${currentView === 'projects' ? 'active' : ''}`}
-				onClick={(e) => { e.preventDefault(); setView('projects'); }}
-			>
-				<span className="material-symbols-outlined">grid_view</span>
-				<span className="label-caps" style={{ fontSize: '11px' }}>Project Matrix</span>
-			</a>
-		</div>
-		<div className="sidebar-footer">
-			<a href="#" className="nav-tab">
-				<span className="material-symbols-outlined">terminal</span>
-				<span className="label-caps" style={{ fontSize: '10px' }}>Logs</span>
-			</a>
-		</div>
-	</nav>
+			<div className="nav-tabs">
+				<a 
+					href="#" 
+					className={`nav-tab ${currentView === 'overview' ? 'active' : ''}`}
+					onClick={(e) => { e.preventDefault(); setView('overview'); setIsOpen(false); }}
+				>
+					<span className="material-symbols-outlined">dashboard</span>
+					<span className="label-caps" style={{ fontSize: '11px' }}>Overview</span>
+				</a>
+				<a 
+					href="#" 
+					className={`nav-tab ${currentView === 'agents' ? 'active' : ''}`}
+					onClick={(e) => { e.preventDefault(); setView('agents'); setIsOpen(false); }}
+				>
+					<span className="material-symbols-outlined">precision_manufacturing</span>
+					<span className="label-caps" style={{ fontSize: '11px' }}>Agents</span>
+				</a>
+				<a 
+					href="#" 
+					className={`nav-tab ${currentView === 'projects' ? 'active' : ''}`}
+					onClick={(e) => { e.preventDefault(); setView('projects'); setIsOpen(false); }}
+				>
+					<span className="material-symbols-outlined">grid_view</span>
+					<span className="label-caps" style={{ fontSize: '11px' }}>Project Matrix</span>
+				</a>
+			</div>
+			<div className="sidebar-footer">
+				<a href="#" className="nav-tab">
+					<span className="material-symbols-outlined">terminal</span>
+					<span className="label-caps" style={{ fontSize: '10px' }}>Logs</span>
+				</a>
+			</div>
+		</nav>
+	</>
 );
 
-const Header = () => (
+const Header = ({ onMenuClick }) => (
 	<header className="top-header">
 		<div className="header-brand-container">
+			<div className="menu-trigger" onClick={onMenuClick}>
+				<span className="material-symbols-outlined">menu</span>
+			</div>
 			<span className="header-brand-text">AI COMMAND CENTER</span>
 		</div>
 		<div className="header-actions">
@@ -70,6 +79,7 @@ const Header = () => (
 
 const App = () => {
 	const [view, setView] = useState('overview');
+	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 	const [timeRange, setTimeRange] = useState('24H');
 	const [data, setData] = useState({ stats: {}, throughput: [], recentLogs: [] });
 
@@ -92,8 +102,13 @@ const App = () => {
 
 	return (
 		<div className="app-container">
-			<Sidebar currentView={view} setView={setView} />
-			<Header />
+			<Sidebar 
+				currentView={view} 
+				setView={setView} 
+				isOpen={isSidebarOpen} 
+				setIsOpen={setIsSidebarOpen} 
+			/>
+			<Header onMenuClick={() => setIsSidebarOpen(true)} />
 			<main className="main-canvas">
 				{view === 'overview' && <Overview data={data} timeRange={timeRange} setTimeRange={setTimeRange} />}
 				{view === 'agents' && <Agents />}

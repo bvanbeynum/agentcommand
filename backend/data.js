@@ -244,6 +244,24 @@ export const dataLayer = {
 			return { status: 560, error: error.message };
 		}
 	},
+	createAgent: async (agentData) => {
+		try {
+			const agent = new Agent(agentData);
+			const savedAgent = await agent.save();
+			return { status: 201, data: sanitize(savedAgent.toObject()) };
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
+	deleteAgent: async (id) => {
+		try {
+			const result = await Agent.findByIdAndDelete(id).exec();
+			if (!result) return { status: 404, error: 'Agent not found' };
+			return { status: 200, data: { id, message: 'Agent deleted successfully' } };
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
 	getAgentStats: async () => {
 		try {
 			// Basic stats

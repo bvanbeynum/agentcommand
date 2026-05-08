@@ -21,9 +21,6 @@ const Projects = () => {
 			const json = await res.json();
 			if (json.status === 200) {
 				setProjects(json.data);
-				if (json.data.length > 0 && !selectedProjectId) {
-					setSelectedProjectId(json.data[0].id);
-				}
 			}
 		} catch (err) {
 			console.error('Failed to fetch projects:', err);
@@ -170,7 +167,7 @@ const Projects = () => {
 				</button>
 			</div>
 
-			<div className="grid-container">
+			<div className={`grid-container ${selectedProjectId ? 'is-detail-open' : ''}`}>
 				{/* Project List Sidebar */}
 				<div className="project-sidebar">
 					<div className="directory-header">
@@ -185,11 +182,11 @@ const Projects = () => {
 								onClick={() => setSelectedProjectId(project.id)}
 							>
 								<div className="project-card-header">
-									<span className="project-id-label text-primary-cyan">{project.id}</span>
+									<span className="project-id-label text-primary-cyan" style={{ wordBreak: 'break-all' }}>{project.id}</span>
 									<span className={`status-dot ${project.status === 'EXECUTION' ? 'bg-primary-cyan' : 'bg-outline-variant'}`}></span>
 								</div>
 								<h3 className="headline-md" style={{ fontSize: '16px', margin: '0 0 4px 0' }}>{project.name}</h3>
-								<p className="mono-data" style={{ fontSize: '11px', color: 'var(--on-surface-variant)', margin: '0 0 16px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+								<p className="mono-data" style={{ fontSize: '11px', color: 'var(--on-surface-variant)', margin: '0 0 16px 0', wordBreak: 'break-word' }}>
 									{project.description}
 								</p>
 								<div style={{ display: 'flex', gap: '8px' }}>
@@ -202,15 +199,19 @@ const Projects = () => {
 
 				{/* Drill-Down View */}
 				<div className="project-detail-view">
+					<div className="mobile-back-btn" onClick={() => setSelectedProjectId(null)}>
+						<span className="material-symbols-outlined">arrow_back</span>
+						<span className="label-caps" style={{ fontSize: '10px' }}>Back to Directory</span>
+					</div>
 					{projectDetails ? (
 						<>
 							<div className="detail-banner">
 								<div>
-									<div className="project-id-label text-primary-cyan" style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+									<div className="project-id-label text-primary-cyan" style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px', wordBreak: 'break-all' }}>
 										<span className="material-symbols-outlined" style={{ fontSize: '14px' }}>memory</span>
 										{projectDetails.id}
 									</div>
-									<h2 className="headline-lg" style={{ fontSize: '24px', margin: 0 }}>{projectDetails.name}</h2>
+									<h2 className="headline-lg project-detail-title" style={{ margin: 0 }}>{projectDetails.name}</h2>
 								</div>
 								<div style={{ textAlign: 'right' }}>
 									<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface-variant)', marginBottom: '4px' }}>WORKING</div>
@@ -218,7 +219,7 @@ const Projects = () => {
 								</div>
 							</div>
 
-							<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+							<div className="project-detail-grid">
 								{/* Artifacts */}
 								<div className="bento-card">
 									<div className="label-caps" style={{ color: 'var(--on-surface-variant)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '8px' }}>
@@ -275,44 +276,79 @@ const Projects = () => {
 							</div>
 
 							{/* Task Matrix */}
-							<div className="bento-card">
+							<div className="bento-card table-card">
 								<div className="label-caps" style={{ color: 'var(--on-surface-variant)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '8px' }}>
 									<span className="material-symbols-outlined" style={{ fontSize: '16px' }}>checklist</span>
 									TASK MATRIX
 								</div>
-								<table className="project-table">
-									<thead>
-										<tr>
-											<th className="mono-data" style={{ fontSize: '10px' }}>Date/Time</th>
-											<th className="mono-data" style={{ fontSize: '10px' }}>Status</th>
-											<th className="mono-data" style={{ fontSize: '10px' }}>Description</th>
-											<th className="mono-data" style={{ fontSize: '10px' }}>Assignee</th>
-										</tr>
-									</thead>
-									<tbody>
+								
+								{/* Desktop Table View */}
+								<div className="desktop-only scrollable-x">
+									<table className="project-table">
+										<thead>
+											<tr>
+												<th className="mono-data" style={{ fontSize: '10px' }}>Date/Time</th>
+												<th className="mono-data" style={{ fontSize: '10px' }}>Status</th>
+												<th className="mono-data" style={{ fontSize: '10px' }}>Description</th>
+												<th className="mono-data" style={{ fontSize: '10px' }}>Assignee</th>
+											</tr>
+										</thead>
+										<tbody>
+											{projectDetails.tasks.length > 0 ? projectDetails.tasks.map((task, i) => (
+												<tr key={i} onClick={() => setSelectedTask(task)} style={{ cursor: 'pointer' }}>
+													<td className="mono-data text-primary-cyan" style={{ fontSize: '12px' }}>{new Date(task.created).toLocaleString()}</td>
+													<td className="mono-data" style={{ fontSize: '12px' }}>
+														<span style={{ 
+															color: task.status === 'done' ? 'var(--primary-cyan)' : (task.status === 'awaiting_user_response' ? '#ff5449' : 'var(--alert-amber)'),
+															fontWeight: '600',
+															textTransform: 'uppercase',
+															fontSize: '10px'
+														}}>
+															{task.status.replace(/_/g, ' ')}
+														</span>
+													</td>
+													<td className="mono-data" style={{ fontSize: '12px' }}>{task.payload.instruction}</td>
+													<td className="mono-data" style={{ fontSize: '12px', color: 'var(--on-surface-variant)' }}>{task.to}</td>
+												</tr>
+											)) : (
+												<tr>
+													<td colSpan="4" className="mono-data" style={{ textAlign: 'center', padding: '16px', color: 'var(--on-surface-variant)' }}>No tasks recorded</td>
+												</tr>
+											)}
+										</tbody>
+									</table>
+								</div>
+
+								{/* Mobile Card View */}
+								<div className="mobile-only">
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '16px' }}>
 										{projectDetails.tasks.length > 0 ? projectDetails.tasks.map((task, i) => (
-											<tr key={i} onClick={() => setSelectedTask(task)} style={{ cursor: 'pointer' }}>
-												<td className="mono-data text-primary-cyan" style={{ fontSize: '12px' }}>{new Date(task.created).toLocaleString()}</td>
-												<td className="mono-data" style={{ fontSize: '12px' }}>
+											<div key={i} className="task-mobile-card" onClick={() => setSelectedTask(task)}>
+												<div className="flex-justify-between" style={{ marginBottom: '8px' }}>
+													<span className="mono-data text-primary-cyan" style={{ fontSize: '10px' }}>{new Date(task.created).toLocaleString()}</span>
 													<span style={{ 
 														color: task.status === 'done' ? 'var(--primary-cyan)' : (task.status === 'awaiting_user_response' ? '#ff5449' : 'var(--alert-amber)'),
 														fontWeight: '600',
 														textTransform: 'uppercase',
-														fontSize: '10px'
+														fontSize: '9px',
+														border: `1px solid ${task.status === 'done' ? 'var(--primary-cyan)' : (task.status === 'awaiting_user_response' ? '#ff5449' : 'var(--alert-amber)')}`,
+														padding: '1px 6px',
+														borderRadius: '2px'
 													}}>
 														{task.status.replace(/_/g, ' ')}
 													</span>
-												</td>
-												<td className="mono-data" style={{ fontSize: '12px' }}>{task.payload.instruction}</td>
-												<td className="mono-data" style={{ fontSize: '12px', color: 'var(--on-surface-variant)' }}>{task.to}</td>
-											</tr>
+												</div>
+												<div className="mono-data" style={{ fontSize: '12px', marginBottom: '8px', wordBreak: 'break-word' }}>{task.payload.instruction}</div>
+												<div className="flex-justify-between">
+													<span className="label-caps" style={{ fontSize: '9px', color: 'var(--on-surface-variant)' }}>Assignee:</span>
+													<span className="mono-data" style={{ fontSize: '11px' }}>{task.to}</span>
+												</div>
+											</div>
 										)) : (
-											<tr>
-												<td colSpan="4" className="mono-data" style={{ textAlign: 'center', padding: '16px', color: 'var(--on-surface-variant)' }}>No tasks recorded</td>
-											</tr>
+											<div className="mono-data" style={{ fontSize: '11px', textAlign: 'center', opacity: 0.5 }}>No tasks recorded</div>
 										)}
-									</tbody>
-								</table>
+									</div>
+								</div>
 							</div>
 
 							{/* Work Log Terminal */}
