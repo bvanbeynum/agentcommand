@@ -204,7 +204,7 @@ body {
 
 .grid-container {
 	display: grid;
-	grid-template-columns: 1fr;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--gutter);
 	max-width: 1440px;
 	margin: 0 auto;
@@ -294,7 +294,7 @@ body {
 	}
 
 	.grid-container {
-		grid-template-columns: repeat(12, 1fr);
+		grid-template-columns: repeat(12, minmax(0, 1fr));
 	}
 
 	.chart-card {
@@ -353,7 +353,7 @@ body {
 .portal-btn {
 	background-color: #ffffff;
 	border: 2px solid #1a1c1c;
-	width: 60px;
+	width: 80px;
 	height: 60px;
 	display: flex;
 	flex-direction: column;
@@ -398,6 +398,7 @@ body {
 	flex-direction: column;
 	height: 500px;
 	margin-bottom: var(--gutter);
+	min-width: 0;
 }
 
 .chat-terminal-header {
@@ -412,6 +413,7 @@ body {
 .chat-log-stream {
 	flex: 1;
 	overflow-y: auto;
+	overflow-x: hidden;
 	padding: 16px;
 	display: flex;
 	flex-direction: column;
@@ -422,6 +424,8 @@ body {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+	max-width: 100%;
+	min-width: 0;
 }
 
 .chat-entry-header {
@@ -436,6 +440,9 @@ body {
 	color: #c9d1d9;
 	font-size: 13px;
 	line-height: 1.5;
+	overflow-wrap: break-word;
+	word-break: break-word;
+	min-width: 0;
 }
 
 .chat-entry-content .markdown-body {
@@ -471,6 +478,7 @@ body {
 	border-top: 1px solid #30363d;
 	background-color: #161b22;
 	display: flex;
+	align-items: flex-end;
 	gap: 12px;
 }
 
@@ -483,6 +491,10 @@ body {
 	border-radius: 4px;
 	font-family: 'Fira Code', monospace;
 	font-size: 13px;
+	line-height: 1.5;
+	resize: none;
+	max-height: 75px;
+	overflow-y: auto;
 }
 
 .chat-input:focus {
@@ -872,6 +884,7 @@ tr:hover {
 	display: none;
 	flex-direction: column;
 	gap: var(--gutter);
+	min-width: 0;
 }
 
 .grid-container.is-detail-open .agent-roster-sidebar {
@@ -935,27 +948,27 @@ tr:hover {
 
 .agent-detail-grid {
 	display: grid;
-	grid-template-columns: 1fr;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--gutter);
 	margin-bottom: 24px;
 }
 
 @media (min-width: 1024px) {
 	.agent-detail-grid {
-		grid-template-columns: 1fr 1fr 1fr;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
 }
 
 .project-detail-grid {
 	display: grid;
-	grid-template-columns: 1fr;
+	grid-template-columns: minmax(0, 1fr);
 	gap: 24px;
 	margin-bottom: 24px;
 }
 
 @media (min-width: 1024px) {
 	.project-detail-grid {
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 
@@ -980,6 +993,7 @@ tr:hover {
 	text-align: left;
 	cursor: pointer;
 	width: 100%;
+	margin: 10px 0;
 }
 
 .roster-btn:hover {
@@ -1028,13 +1042,13 @@ tr:hover {
 
 .artifact-grid {
 	display: grid;
-	grid-template-columns: 1fr;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--stack-sm);
 }
 
 @media (min-width: 1024px) {
 	.artifact-grid {
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 

@@ -13,13 +13,17 @@ const Agents = () => {
 	const [showToolsModal, setShowToolsModal] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [newAgentName, setNewAgentName] = useState('');
+	const [newAgentCategory, setNewAgentCategory] = useState('General');
 	const [newAgentInstructions, setNewAgentInstructions] = useState('');
 	const [newAgentTools, setNewAgentTools] = useState([]);
 
 	const [editInstructions, setEditInstructions] = useState('');
 	const [isEditingInstructions, setIsEditingInstructions] = useState(false);
+	const [editCategory, setEditCategory] = useState('');
+	const [isEditingCategory, setIsEditingCategory] = useState(false);
 	const [activeTools, setActiveTools] = useState([]);
 	const [chatInput, setChatInput] = useState('');
+	const textareaRef = React.useRef(null);
 
 	const availableTools = [
 		'writeFile', 'runCommand', 'readProjectFile', 'addProjectArtifact', 
@@ -49,8 +53,9 @@ const Agents = () => {
 				const json = await res.json();
 				if (json.status === 200) {
 					setSelectedAgentData(json.data);
-					setEditInstructions(json.data.instructions);
-					setActiveTools(json.data.tools || []);
+					if (!isEditingInstructions) setEditInstructions(json.data.instructions);
+					if (!isEditingCategory) setEditCategory(json.data.category || 'General');
+					if (!showToolsModal) setActiveTools(json.data.tools || []);
 				}
 			} catch (err) {
 				console.error('Failed to fetch details:', err);
@@ -60,7 +65,7 @@ const Agents = () => {
 		fetchDetails();
 		const interval = setInterval(fetchDetails, 5000);
 		return () => clearInterval(interval);
-	}, [selectedAgent]);
+	}, [selectedAgent, isEditingInstructions, isEditingCategory, showToolsModal]);
 
 	const handleSaveAgent = async (updateData) => {
 		try {
@@ -72,6 +77,9 @@ const Agents = () => {
 			const json = await res.json();
 			if (json.status === 200) {
 				setSelectedAgentData(prev => ({ ...prev, ...updateData }));
+				setAgentRoster(prev => prev.map(a => 
+					a.id === selectedAgent ? { ...a, ...updateData } : a
+				));
 			}
 		} catch (err) {
 			console.error('Failed to save agent updates:', err);
@@ -86,6 +94,7 @@ const Agents = () => {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					name: newAgentName,
+					category: newAgentCategory,
 					instructions: newAgentInstructions,
 					tools: newAgentTools
 				})
@@ -95,11 +104,13 @@ const Agents = () => {
 				setAgentRoster(prev => [...prev, { 
 					id: json.data.id, 
 					name: json.data.name, 
+					category: json.data.category,
 					status: 'offline' 
 				}]);
 				setSelectedAgent(json.data.id);
 				setShowCreateModal(false);
 				setNewAgentName('');
+				setNewAgentCategory('General');
 				setNewAgentInstructions('');
 				setNewAgentTools([]);
 			}
@@ -242,6 +253,12 @@ const Agents = () => {
 		setChatInput('');
 	}, [selectedAgent]);
 
+	useEffect(() => {
+		if (chatInput === '' && textareaRef.current) {
+			textareaRef.current.style.height = 'inherit';
+		}
+	}, [chatInput]);
+
 	const getIcon = (name) => {
 		const n = name?.toLowerCase() || '';
 		if (n.includes('architect')) return 'architecture';
@@ -264,22 +281,40 @@ const Agents = () => {
 			{/* Agent List Sidebar */}
 			<aside className="agent-roster-sidebar">
 				<h2 className="roster-header uppercase">AGENT ROSTER</h2>
-				{agentRoster.map(agent => (
-					<button 
-						key={agent.id}
-						className={`roster-btn ${selectedAgent === agent.id ? 'roster-btn-active' : ''}`}
-						onClick={() => setSelectedAgent(agent.id)}
-					>
-						<div className="flex-center-gap-8" style={{ width: '100%', flexWrap: 'nowrap' }}>
-							<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '20px', flexShrink: 0 }}>{getIcon(agent.name)}</span>
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface)', wordBreak: 'break-word', whiteSpace: 'normal' }}>{agent.name}</div>
-								<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', lineHeight: 1 }}>ID: {agent.id.slice(-6)}</div>
-							</div>
+				{(() => {
+					const groupedAgents = agentRoster.reduce((acc, agent) => {
+						const cat = agent.category || 'General';
+						if (!acc[cat]) acc[cat] = [];
+						acc[cat].push(agent);
+						return acc;
+					}, {});
+
+					const categories = Object.keys(groupedAgents).sort();
+
+					return categories.map(category => (
+						<div key={category}>
+							<h3 className="mono-data uppercase" style={{ fontSize: '10px', color: 'var(--primary-cyan)', padding: '0 12px', marginBottom: '8px', opacity: 0.7 }}>
+								{category}
+							</h3>
+							{groupedAgents[category].map(agent => (
+								<button 
+									key={agent.id}
+									className={`roster-btn ${selectedAgent === agent.id ? 'roster-btn-active' : ''}`}
+									onClick={() => setSelectedAgent(agent.id)}
+								>
+									<div className="flex-center-gap-8" style={{ width: '100%', flexWrap: 'nowrap' }}>
+										<span className="material-symbols-outlined text-primary-cyan" style={{ fontSize: '20px', flexShrink: 0 }}>{getIcon(agent.name)}</span>
+										<div style={{ flex: 1, minWidth: 0 }}>
+											<div className="label-caps" style={{ fontSize: '10px', color: 'var(--on-surface)', wordBreak: 'break-word', whiteSpace: 'normal' }}>{agent.name}</div>
+											<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', lineHeight: 1 }}>ID: {agent.id.slice(-6)}</div>
+										</div>
+									</div>
+									<div className="status-pip" style={{ backgroundColor: agent.status === 'online' ? 'var(--primary-cyan)' : 'var(--outline)', flexShrink: 0, marginLeft: '8px' }}></div>
+								</button>
+							))}
 						</div>
-						<div className="status-pip" style={{ backgroundColor: agent.status === 'online' ? 'var(--primary-cyan)' : 'var(--outline)', flexShrink: 0, marginLeft: '8px' }}></div>
-					</button>
-				))}
+					));
+				})()}
 				<button 
 					className="btn-telemetry-filter-active mono-data" 
 					style={{ width: '100%', marginTop: '16px', padding: '12px' }}
@@ -313,7 +348,45 @@ const Agents = () => {
 					</div>
 					<div style={{ marginLeft: 'auto', textAlign: 'right' }}>
 						<h1 className="headline-lg uppercase agent-detail-title" style={{ margin: 0, color: 'var(--primary-cyan)' }}>{selectedAgentData.name}</h1>
-						<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)' }}>ID: {selectedAgentData.id}</div>
+						<div className="flex-center-gap-8" style={{ justifyContent: 'flex-end', marginTop: '4px' }}>
+							{isEditingCategory ? (
+								<input 
+									type="text"
+									className="mono-data"
+									style={{ 
+										backgroundColor: 'var(--surface-container-lowest)', 
+										border: '1px solid var(--primary-cyan)',
+										color: 'var(--on-surface)',
+										padding: '2px 8px',
+										fontSize: '10px',
+										textAlign: 'right'
+									}}
+									value={editCategory}
+									onChange={(e) => setEditCategory(e.target.value)}
+									onBlur={() => {
+										handleSaveAgent({ category: editCategory });
+										setIsEditingCategory(false);
+									}}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter') {
+											handleSaveAgent({ category: editCategory });
+											setIsEditingCategory(false);
+										}
+									}}
+									autoFocus
+								/>
+							) : (
+								<div 
+									className="mono-data" 
+									style={{ fontSize: '10px', color: 'var(--outline)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+									onClick={() => setIsEditingCategory(true)}
+								>
+									CATEGORY: {selectedAgentData.category || 'General'}
+									<span className="material-symbols-outlined" style={{ fontSize: '12px', opacity: 0.5 }}>edit</span>
+								</div>
+							)}
+						</div>
+						<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>ID: {selectedAgentData.id}</div>
 
 						<div className="mono-data" style={{ fontSize: '10px', color: 'var(--outline)', marginTop: '4px' }}>PROJECT: {selectedAgentData.project}</div>
 					</div>
@@ -361,12 +434,23 @@ const Agents = () => {
 										<span className="material-symbols-outlined">add_circle</span>
 									</button>
 								)}
-								<input 
-									type="text" 
+								<textarea 
+									ref={textareaRef}
 									className="chat-input" 
 									placeholder={canChat ? "Type a message to start or continue the chat..." : "Waiting for agent to respond..."}
 									value={chatInput}
-									onChange={(e) => setChatInput(e.target.value)}
+									rows={1}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter' && !e.shiftKey) {
+											e.preventDefault();
+											handleChatSubmit(e);
+										}
+									}}
+									onChange={(e) => {
+										setChatInput(e.target.value);
+										e.target.style.height = 'inherit';
+										e.target.style.height = `${e.target.scrollHeight}px`;
+									}}
 									disabled={!canChat}
 								/>
 								<button type="submit" className="chat-send-btn" disabled={!chatInput.trim() || !canChat}>
@@ -681,6 +765,17 @@ const Agents = () => {
 										value={newAgentName}
 										onChange={(e) => setNewAgentName(e.target.value)}
 										placeholder="e.g. Senior Backend Developer"
+									/>
+								</div>
+								<div className="flex-column" style={{ gap: '8px' }}>
+									<label className="label-caps" style={{ fontSize: '10px' }}>AGENT CATEGORY</label>
+									<input 
+										type="text" 
+										className="chat-input" 
+										style={{ backgroundColor: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)' }}
+										value={newAgentCategory}
+										onChange={(e) => setNewAgentCategory(e.target.value)}
+										placeholder="e.g. Development, Design, Research"
 									/>
 								</div>
 								<div className="flex-column" style={{ gap: '8px' }}>

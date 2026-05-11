@@ -5,6 +5,7 @@ const { Schema } = mongoose;
 
 const agentSchema = new Schema({
 	name: { type: String, required: true },
+	category: { type: String, default: 'General' },
 	instructions: { type: String },
 	tools: { type: Array, default: [] },
 	status: { type: String, default: 'offline' },
@@ -165,6 +166,7 @@ export const dataLayer = {
 			const roster = agents.map(agent => ({
 				id: agent._id.toString(),
 				name: agent.name,
+				category: agent.category || 'General',
 				status: activeAgentIds.includes(agent._id.toString()) ? 'online' : 'offline'
 			}));
 
@@ -208,6 +210,7 @@ export const dataLayer = {
 				data: {
 					id: agentId,
 					name: agent.name,
+					category: agent.category || 'General',
 					instructions: agent.instructions || '',
 					tools: agent.tools || [],
 					created: agent.created,
