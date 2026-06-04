@@ -54,11 +54,21 @@ const artifactSchema = new Schema({
 	created: { type: Date, default: Date.now }
 }, { collection: 'artifacts' });
 
+const agentToolSchema = new Schema({
+	name: { type: String, required: true, unique: true },
+	description: { type: String },
+	parameters: { type: Object, default: {} },
+	inactiveDate: { type: Date, default: null },
+	created: { type: Date, default: Date.now },
+	modified: { type: Date, default: Date.now }
+}, { collection: 'agentTools' });
+
 const Agent = mongoose.model('Agent', agentSchema);
 const Task = mongoose.model('Task', taskSchema);
 const Log = mongoose.model('Log', logSchema);
 const Session = mongoose.model('Session', sessionSchema);
 const Artifact = mongoose.model('Artifact', artifactSchema);
+const AgentTool = mongoose.model('AgentTool', agentToolSchema);
 
 const sanitize = (doc) => {
 	if (!doc) return doc;
@@ -110,6 +120,14 @@ export const disconnectDB = async () => {
 };
 
 export const dataLayer = {
+	getTools: async () => {
+		try {
+			const tools = await AgentTool.find({ inactiveDate: null }).lean().exec();
+			return { status: 200, data: sanitize(tools) };
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
 	getTasks: async (filter = {}) => {
 		try {
 			const data = await Task.find(filter).sort({ created: -1 }).lean().exec();

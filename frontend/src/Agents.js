@@ -25,11 +25,23 @@ const Agents = () => {
 	const [chatInput, setChatInput] = useState('');
 	const textareaRef = React.useRef(null);
 
-	const availableTools = [
-		'writeFile', 'runCommand', 'readProjectFile', 'addProjectArtifact', 
-		'readProjectArtifact', 'assignTask', 'askClarifyingQuestions'
-	];
-	
+	const [availableTools, setAvailableTools] = useState([]);
+
+	useEffect(() => {
+		const fetchTools = async () => {
+			try {
+				const res = await fetch('/api/tools');
+				const json = await res.json();
+				if (json.status === 200) {
+					setAvailableTools(json.data);
+				}
+			} catch (err) {
+				console.error('Failed to fetch available tools:', err);
+			}
+		};
+		fetchTools();
+	}, []);
+
 	useEffect(() => {
 		const fetchRoster = async () => {
 			try {
@@ -693,34 +705,38 @@ const Agents = () => {
 				{/* Tools Modal */}
 				{showToolsModal && (
 					<div className="modal-overlay" onClick={() => setShowToolsModal(false)}>
-						<div className="modal-content bento-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+						<div className="modal-content bento-card toolModalContent" onClick={e => e.stopPropagation()}>
 							<header className="modal-header">
-								<h2 className="label-caps" style={{ margin: 0 }}>TOOL CONFIGURATION</h2>
+								<h2 className="label-caps modalTitle">TOOL CONFIGURATION</h2>
 								<button className="modal-close-btn" onClick={() => setShowToolsModal(false)}>
 									<span className="material-symbols-outlined">close</span>
 								</button>
 							</header>
 							<div className="modal-body">
-								<div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+								<div className="toolListContainer">
 									{availableTools.map(tool => (
-										<label key={tool} className="flex-center-gap-8" style={{ cursor: 'pointer', padding: '8px', backgroundColor: 'var(--surface-container-low)', borderRadius: '4px' }}>
+										<label key={tool.name} className="flex-center-gap-8 toolOptionLabel">
 											<input 
 												type="checkbox" 
-												checked={activeTools.includes(tool)}
+												checked={activeTools.includes(tool.name)}
 												onChange={(e) => {
 													if (e.target.checked) {
-														setActiveTools([...activeTools, tool]);
+														setActiveTools([...activeTools, tool.name]);
 													} else {
-														setActiveTools(activeTools.filter(t => t !== tool));
+														setActiveTools(activeTools.filter(t => t !== tool.name));
 													}
 												}}
+												className="toolCheckbox"
 											/>
-											<span className="mono-data" style={{ fontSize: '12px' }}>{tool}</span>
+											<div className="flex-column toolTextContainer">
+												<span className="mono-data toolNameText">{tool.name}</span>
+												{tool.description && <span className="toolDescriptionText">{tool.description}</span>}
+											</div>
 										</label>
 									))}
 								</div>
 							</div>
-							<footer className="modal-footer" style={{ justifyContent: 'flex-end', gap: '12px' }}>
+							<footer className="modal-footer modalFooterRight">
 								<button className="btn-telemetry-filter mono-data" onClick={() => setShowToolsModal(false)}>CANCEL</button>
 								<button 
 									className="btn-telemetry-filter-active mono-data" 
@@ -747,79 +763,72 @@ const Agents = () => {
 			{/* Create Agent Modal */}
 			{showCreateModal && (
 				<div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-					<div className="modal-content bento-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+					<div className="modal-content bento-card createAgentModalContent" onClick={e => e.stopPropagation()}>
 						<header className="modal-header">
-							<h2 className="label-caps" style={{ margin: 0 }}>CREATE NEW AGENT</h2>
+							<h2 className="label-caps modalTitle">CREATE NEW AGENT</h2>
 							<button className="modal-close-btn" onClick={() => setShowCreateModal(false)}>
 								<span className="material-symbols-outlined">close</span>
 							</button>
 						</header>
-						<div className="modal-body scrollable-y" style={{ maxHeight: '70vh' }}>
-							<div className="flex-column" style={{ gap: '20px' }}>
-								<div className="flex-column" style={{ gap: '8px' }}>
+						<div className="modal-body scrollable-y modalBodyMaxHeight">
+							<div className="flex-column formContainerLargeGap">
+								<div className="flex-column formGroupSmallGap">
 									<label className="label-caps" style={{ fontSize: '10px' }}>AGENT NAME</label>
 									<input 
 										type="text" 
-										className="chat-input" 
-										style={{ backgroundColor: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)' }}
+										className="chat-input formInputStyled" 
 										value={newAgentName}
 										onChange={(e) => setNewAgentName(e.target.value)}
 										placeholder="e.g. Senior Backend Developer"
 									/>
 								</div>
-								<div className="flex-column" style={{ gap: '8px' }}>
+								<div className="flex-column formGroupSmallGap">
 									<label className="label-caps" style={{ fontSize: '10px' }}>AGENT CATEGORY</label>
 									<input 
 										type="text" 
-										className="chat-input" 
-										style={{ backgroundColor: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)' }}
+										className="chat-input formInputStyled" 
 										value={newAgentCategory}
 										onChange={(e) => setNewAgentCategory(e.target.value)}
 										placeholder="e.g. Development, Design, Research"
 									/>
 								</div>
-								<div className="flex-column" style={{ gap: '8px' }}>
+								<div className="flex-column formGroupSmallGap">
 									<label className="label-caps" style={{ fontSize: '10px' }}>INITIAL INSTRUCTIONS</label>
 									<textarea 
-										className="mono-data"
-										style={{ 
-											width: '100%', 
-											height: '150px', 
-											backgroundColor: 'var(--surface-container-lowest)',
-											border: '1px solid var(--outline-variant)',
-											padding: '12px',
-											resize: 'vertical',
-											boxSizing: 'border-box'
-										}}
+										className="mono-data formTextareaStyled"
 										value={newAgentInstructions}
 										onChange={(e) => setNewAgentInstructions(e.target.value)}
 										placeholder="Describe the agent's primary purpose and behavior..."
 									/>
 								</div>
-								<div className="flex-column" style={{ gap: '8px' }}>
+								<div className="flex-column formGroupSmallGap">
 									<label className="label-caps" style={{ fontSize: '10px' }}>TOOL PERMISSIONS</label>
-									<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+									<div className="toolListContainer">
 										{availableTools.map(tool => (
-											<label key={tool} className="flex-center-gap-8" style={{ cursor: 'pointer', padding: '6px', backgroundColor: 'var(--surface-container-low)', borderRadius: '4px' }}>
+											<label key={tool.name} className="flex-center-gap-8 toolOptionLabel">
 												<input 
 													type="checkbox" 
-													checked={newAgentTools.includes(tool)}
+													checked={newAgentTools.includes(tool.name)}
 													onChange={(e) => {
 														if (e.target.checked) {
-															setNewAgentTools([...newAgentTools, tool]);
+															setNewAgentTools([...newAgentTools, tool.name]);
 														} else {
-															setNewAgentTools(newAgentTools.filter(t => t !== tool));
+															setNewAgentTools(newAgentTools.filter(t => t !== tool.name));
 														}
 													}}
+													className="toolCheckbox"
 												/>
-												<span className="mono-data" style={{ fontSize: '10px' }}>{tool}</span>
+												<div className="flex-column toolTextContainer">
+													<span className="mono-data toolNameText">{tool.name}</span>
+													{tool.description && <span className="toolDescriptionText">{tool.description}</span>}
+												</div>
 											</label>
 										))}
 									</div>
 								</div>
 							</div>
 						</div>
-						<footer className="modal-footer" style={{ justifyContent: 'flex-end', gap: '12px' }}>
+						<footer className="modal-footer modalFooterRight">
 							<button className="btn-telemetry-filter mono-data" onClick={() => setShowCreateModal(false)}>CANCEL</button>
 							<button 
 								className="btn-telemetry-filter-active mono-data" 

@@ -21,6 +21,10 @@ export const api = {
 			}
 		});
 	},
+	getTools: async (req, res) => {
+		const result = await dataLayer.getTools();
+		res.status(result.status).json(result);
+	},
 	getTasks: async (req, res) => {
 		const result = await dataLayer.getTasks(req.query);
 		res.status(result.status).json(result);

@@ -486,7 +486,7 @@ body {
 	flex: 1;
 	background-color: #0d1117;
 	border: 1px solid #30363d;
-	color: #c9d1d9;
+	color: #757c84;
 	padding: 8px 12px;
 	border-radius: 4px;
 	font-family: 'Fira Code', monospace;
@@ -1726,5 +1726,86 @@ tr:hover {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+}
+
+/* Modals & Tools Dynamic Configuration styles */
+.toolModalContent {
+	max-width: 500px;
+}
+
+.createAgentModalContent {
+	max-width: 600px;
+}
+
+.modalTitle {
+	margin: 0;
+}
+
+.modalBodyMaxHeight {
+	max-height: 70vh;
+}
+
+.modalFooterRight {
+	justify-content: flex-end;
+	gap: 12px;
+}
+
+.formContainerLargeGap {
+	gap: 20px;
+}
+
+.formGroupSmallGap {
+	gap: 8px;
+}
+
+.formInputStyled {
+	background-color: var(--surface-container-lowest);
+	border: 1px solid var(--outline-variant);
+}
+
+.formTextareaStyled {
+	width: 100%;
+	height: 150px;
+	background-color: var(--surface-container-lowest);
+	border: 1px solid var(--outline-variant);
+	padding: 12px;
+	resize: vertical;
+	box-sizing: border-box;
+}
+
+.toolListContainer {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 12px;
+}
+
+.toolOptionLabel {
+	cursor: pointer;
+	padding: 8px;
+	background-color: var(--surface-container-low);
+	border-radius: 4px;
+	align-items: flex-start;
+}
+
+.toolCheckbox {
+	margin-top: 2px;
+}
+
+.toolTextContainer {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+}
+
+.toolNameText {
+	font-size: 12px;
+	font-weight: bold;
+}
+
+.toolDescriptionText {
+	font-size: 10px;
+	color: var(--on-surface-variant);
+	opacity: 0.8;
 }
 
