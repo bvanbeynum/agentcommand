@@ -26,6 +26,9 @@ const Agents = () => {
 	const textareaRef = React.useRef(null);
 
 	const [availableTools, setAvailableTools] = useState([]);
+	const [models, setModels] = useState([]);
+	const [newAgentModelId, setNewAgentModelId] = useState('');
+	const [isEditingModel, setIsEditingModel] = useState(false);
 
 	useEffect(() => {
 		const fetchTools = async () => {
@@ -39,7 +42,22 @@ const Agents = () => {
 				console.error('Failed to fetch available tools:', err);
 			}
 		};
+		const fetchModels = async () => {
+			try {
+				const res = await fetch('/api/models');
+				const json = await res.json();
+				if (json.status === 200) {
+					setModels(json.data);
+					if (json.data.length > 0) {
+						setNewAgentModelId(json.data[0].id);
+					}
+				}
+			} catch (err) {
+				console.error('Failed to fetch models:', err);
+			}
+		};
 		fetchTools();
+		fetchModels();
 	}, []);
 
 	useEffect(() => {
@@ -108,7 +126,8 @@ const Agents = () => {
 					name: newAgentName,
 					category: newAgentCategory,
 					instructions: newAgentInstructions,
-					tools: newAgentTools
+					tools: newAgentTools,
+					modelId: newAgentModelId
 				})
 			});
 			const json = await res.json();
@@ -125,6 +144,9 @@ const Agents = () => {
 				setNewAgentCategory('General');
 				setNewAgentInstructions('');
 				setNewAgentTools([]);
+				if (models.length > 0) {
+					setNewAgentModelId(models[0].id);
+				}
 			}
 		} catch (err) {
 			console.error('Failed to create agent:', err);
@@ -364,15 +386,7 @@ const Agents = () => {
 							{isEditingCategory ? (
 								<input 
 									type="text"
-									className="mono-data"
-									style={{ 
-										backgroundColor: 'var(--surface-container-lowest)', 
-										border: '1px solid var(--primary-cyan)',
-										color: 'var(--on-surface)',
-										padding: '2px 8px',
-										fontSize: '10px',
-										textAlign: 'right'
-									}}
+									className="mono-data metaEditInput"
 									value={editCategory}
 									onChange={(e) => setEditCategory(e.target.value)}
 									onBlur={() => {
@@ -389,11 +403,36 @@ const Agents = () => {
 								/>
 							) : (
 								<div 
-									className="mono-data" 
-									style={{ fontSize: '10px', color: 'var(--outline)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+									className="mono-data metaEditableLabel" 
 									onClick={() => setIsEditingCategory(true)}
 								>
 									CATEGORY: {selectedAgentData.category || 'General'}
+									<span className="material-symbols-outlined" style={{ fontSize: '12px', opacity: 0.5 }}>edit</span>
+								</div>
+							)}
+						</div>
+						<div className="flex-center-gap-8" style={{ justifyContent: 'flex-end', marginTop: '4px' }}>
+							{isEditingModel ? (
+								<select 
+									className="metaEditSelect"
+									value={selectedAgentData.modelId || ''}
+									onChange={(e) => {
+										handleSaveAgent({ modelId: e.target.value });
+										setIsEditingModel(false);
+									}}
+									onBlur={() => setIsEditingModel(false)}
+									autoFocus
+								>
+									{models.map(m => (
+										<option key={m.id} value={m.id}>{m.name}</option>
+									))}
+								</select>
+							) : (
+								<div 
+									className="mono-data metaEditableLabel" 
+									onClick={() => setIsEditingModel(true)}
+								>
+									MODEL: {models.find(m => m.id === selectedAgentData.modelId)?.name || 'Default Model'}
 									<span className="material-symbols-outlined" style={{ fontSize: '12px', opacity: 0.5 }}>edit</span>
 								</div>
 							)}
@@ -791,6 +830,18 @@ const Agents = () => {
 										onChange={(e) => setNewAgentCategory(e.target.value)}
 										placeholder="e.g. Development, Design, Research"
 									/>
+								</div>
+								<div className="flex-column formGroupSmallGap">
+									<label className="label-caps" style={{ fontSize: '10px' }}>MODEL SELECTION</label>
+									<select 
+										className="chat-input formInputStyled" 
+										value={newAgentModelId}
+										onChange={(e) => setNewAgentModelId(e.target.value)}
+									>
+										{models.map(m => (
+											<option key={m.id} value={m.id}>{m.name} ({m.modelName})</option>
+										))}
+									</select>
 								</div>
 								<div className="flex-column formGroupSmallGap">
 									<label className="label-caps" style={{ fontSize: '10px' }}>INITIAL INSTRUCTIONS</label>

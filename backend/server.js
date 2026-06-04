@@ -16,6 +16,7 @@ app.use(express.json());
 // API Routes
 app.get('/api/overview', api.getOverview);
 app.get('/api/tools', api.getTools);
+app.get('/api/models', api.getModels);
 app.get('/api/tasks', api.getTasks);
 app.get('/api/logs', api.getLogs);
 app.get('/api/artifacts', api.getArtifacts);

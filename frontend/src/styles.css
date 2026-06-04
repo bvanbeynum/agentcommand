@@ -1809,3 +1809,31 @@ tr:hover {
 	opacity: 0.8;
 }
 
+.metaEditableLabel {
+	font-size: 10px;
+	color: var(--outline);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.metaEditInput {
+	background-color: var(--surface-container-lowest);
+	border: 1px solid var(--primary-cyan);
+	color: var(--on-surface);
+	padding: 2px 8px;
+	font-size: 10px;
+	text-align: right;
+}
+
+.metaEditSelect {
+	background-color: var(--surface-container-lowest);
+	border: 1px solid var(--primary-cyan);
+	color: var(--on-surface);
+	padding: 2px 8px;
+	font-size: 10px;
+	text-align: right;
+	height: auto;
+}
+

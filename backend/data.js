@@ -8,6 +8,7 @@ const agentSchema = new Schema({
 	category: { type: String, default: 'General' },
 	instructions: { type: String },
 	tools: { type: Array, default: [] },
+	modelId: { type: Schema.Types.ObjectId, ref: 'Model' },
 	status: { type: String, default: 'offline' },
 	created: { type: Date, default: Date.now }
 }, { collection: 'agents' });
@@ -63,12 +64,22 @@ const agentToolSchema = new Schema({
 	modified: { type: Date, default: Date.now }
 }, { collection: 'agentTools' });
 
+const modelSchema = new Schema({
+	name: { type: String, required: true },
+	modelName: { type: String, required: true },
+	url: { type: String, default: null },
+	apikey: { type: String, default: null },
+	created: { type: Date, default: Date.now },
+	modified: { type: Date, default: Date.now }
+}, { collection: 'models' });
+
 const Agent = mongoose.model('Agent', agentSchema);
 const Task = mongoose.model('Task', taskSchema);
 const Log = mongoose.model('Log', logSchema);
 const Session = mongoose.model('Session', sessionSchema);
 const Artifact = mongoose.model('Artifact', artifactSchema);
 const AgentTool = mongoose.model('AgentTool', agentToolSchema);
+const Model = mongoose.model('Model', modelSchema);
 
 const sanitize = (doc) => {
 	if (!doc) return doc;
@@ -84,6 +95,9 @@ const sanitize = (doc) => {
 	}
 	if (sanitized.taskId && sanitized.taskId instanceof mongoose.Types.ObjectId) {
 		sanitized.taskId = sanitized.taskId.toString();
+	}
+	if (sanitized.modelId && sanitized.modelId instanceof mongoose.Types.ObjectId) {
+		sanitized.modelId = sanitized.modelId.toString();
 	}
 	delete sanitized.__v;
 	return sanitized;
@@ -124,6 +138,14 @@ export const dataLayer = {
 		try {
 			const tools = await AgentTool.find({ inactiveDate: null }).lean().exec();
 			return { status: 200, data: sanitize(tools) };
+		} catch (error) {
+			return { status: 560, error: error.message };
+		}
+	},
+	getModels: async () => {
+		try {
+			const models = await Model.find().sort({ created: 1 }).lean().exec();
+			return { status: 200, data: sanitize(models) };
 		} catch (error) {
 			return { status: 560, error: error.message };
 		}
@@ -231,6 +253,7 @@ export const dataLayer = {
 					category: agent.category || 'General',
 					instructions: agent.instructions || '',
 					tools: agent.tools || [],
+					modelId: agent.modelId ? agent.modelId.toString() : null,
 					created: agent.created,
 					lastActivity: tasks.length > 0 ? tasks[0].created : agent.created,
 					project: tasks.length > 0 ? tasks[0].metadata?.projectName : 'NONE',
@@ -267,6 +290,12 @@ export const dataLayer = {
 	},
 	createAgent: async (agentData) => {
 		try {
+			if (!agentData.modelId) {
+				const firstModel = await Model.findOne().sort({ created: 1 }).exec();
+				if (firstModel) {
+					agentData.modelId = firstModel._id;
+				}
+			}
 			const agent = new Agent(agentData);
 			const savedAgent = await agent.save();
 			return { status: 201, data: sanitize(savedAgent.toObject()) };
